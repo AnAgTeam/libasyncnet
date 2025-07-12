@@ -1,0 +1,15 @@
+# TODO: add CURLPP_DEFINITIONS, CURLPP_EXECUTABLE, CURLPP_ROOT_DIR
+
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/libcoro")
+
+# find_library(LIBCORO_LIRBARIES NAMES libcoro)
+# find_path(LIBCORO_INCLUDE_DIRS NAMES curlpp)
+
+# set(LIBCORO_FOUND ${LIBCORO_LIRBARIES} AND ${LIBCORO_INCLUDE_DIRS})
+
+set(LIBCORO_LIBRARIES libcoro)
+set(LIBCORO_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/libcoro/include")
+set(LIBCORO_FOUND ON)
+
+message(STATUS "libcoro libraries: ${LIBCORO_LIBRARIES}")
+message(STATUS "libcoro includes: ${LIBCORO_INCLUDE_DIRS}")

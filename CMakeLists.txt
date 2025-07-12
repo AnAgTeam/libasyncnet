@@ -1,0 +1,98 @@
+﻿cmake_minimum_required (VERSION 3.18)
+
+# ---- PREPARE
+
+option(ASYNCNET_INCLUDE_VCPKG "include vcpkg cmake" OFF)
+option(ASYNCNET_BUILD_TESTS "build tests" OFF)
+option(ASYNCNET_BUILD_EXAMPLES "build examples" OFF)
+
+if (ASYNCNET_INCLUDE_VCPKG)
+	include("E:\\Programs\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake")
+endif()
+
+project(asyncnet VERSION 2.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CXX_STANDARD_REQUIRED ON)
+
+set(ASYNCNET_LINK_LIBRARIES)
+
+set(ASYNCNET_INCLUDE_DIRS $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>)
+set(ASYNCNET_LINK_INCLUDE_DIRS
+	${NETWORK_INCLUDE_DIRS}
+	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+# ---- FIND DEPENDENCIES
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+find_package(Boost REQUIRED COMPONENTS json)
+find_package(CURLpp REQUIRED)
+find_package(libcoro REQUIRED)
+
+list(APPEND ASYNCNET_LINK_INCLUDE_DIRS
+	${Boost_INCLUDE_DIRS}
+	${CURLPP_INCLUDE_DIRS}
+	${LIBCORO_INCLUDE_DIRS}
+)
+list(APPEND ASYNCNET_LINK_LIBRARIES
+	${Boost_LIBRARIES}
+	${CURLPP_LIBRARIES}
+	${LIBCORO_LIBRARIES}
+)
+
+include_directories(
+	${ASYNCNET_LINK_INCLUDE_DIRS}
+)
+
+# ---- ADD LIBRARY
+
+file(GLOB_RECURSE ASYNCNET_HEADER_FILES "${CMAKE_CURRENT_LIST_DIR}/include/*.hpp")
+file(GLOB_RECURSE ASYNCNET_SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp")
+
+include_directories("${CMAKE_CURRENT_LIST_DIR}/include")
+
+add_definitions(-DCPPCORO_COMPILER_SUPPORTS_SYMMETRIC_TRANSFER=1)
+
+add_library(asyncnet STATIC ${ASYNCNET_HEADER_FILES} ${ASYNCNET_SOURCE_FILES})
+
+set(ASYNCNET_LIBRARIES ${ASYNCNET_LINK_LIBRARIES} asyncnet)
+
+if (ASYNCNET_BUILD_TESTS)
+	enable_testing()
+	add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/tests")
+endif()
+
+if (ASYNCNET_BUILD_EXAMPLES)
+	add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/examples")
+endif()
+
+# ---- CONFIGURE PACKAGE
+
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+	"${CMAKE_CURRENT_LIST_DIR}/asyncnet-config.cmake.in"
+	"${CMAKE_CURRENT_BINARY_DIR}/asyncnet-config.cmake"
+	INSTALL_DESTINATION
+		"{CMAKE_INSTALL_LIBDIR}/cmake/asyncnet"
+	NO_SET_AND_CHECK_MACRO
+	NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+# always prefix with lib*
+set(CMAKE_STATIC_LIBRARY_PREFIX_CXX lib)
+
+install(TARGETS asyncnet
+	EXPORT asyncnet-targets
+	RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+	ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+
+install(EXPORT asyncnet-targets
+	NAMESPACE async_network::
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/asyncnet"
+	EXPORT_LINK_INTERFACE_LIBRARIES
+)
