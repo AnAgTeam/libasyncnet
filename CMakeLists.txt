@@ -6,8 +6,10 @@ option(ASYNCNET_INCLUDE_VCPKG "include vcpkg cmake" OFF)
 option(ASYNCNET_BUILD_TESTS "build tests" OFF)
 option(ASYNCNET_BUILD_EXAMPLES "build examples" OFF)
 
-if (ASYNCNET_INCLUDE_VCPKG)
-	include("E:\\Programs\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake")
+# without this vcpkg won't try to install dependencies
+if (CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg.cmake")
+	message(STATUS "Found vcpkg")
+	include(${CMAKE_TOOLCHAIN_FILE})
 endif()
 
 project(asyncnet VERSION 2.0 LANGUAGES CXX)
@@ -92,7 +94,7 @@ install(TARGETS asyncnet
 )
 
 install(EXPORT asyncnet-targets
-	NAMESPACE async_network::
+	NAMESPACE asyncnet::
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/asyncnet"
 	EXPORT_LINK_INTERFACE_LIBRARIES
 )

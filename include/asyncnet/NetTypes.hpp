@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <exception>
+#include <string_view>
 #include <curlpp/Form.hpp>
 
 #pragma warning(push, 0)

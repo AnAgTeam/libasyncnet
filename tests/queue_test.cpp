@@ -1,5 +1,5 @@
 #include "catch_amalgamated.hpp"
-#include <asyncnet/ThreadsafeQueues.hpp>
+#include <asyncnet/AsyncQueue.hpp>
 #include <coro/sync_wait.hpp>
 
 #pragma execution_character_set("utf-8")

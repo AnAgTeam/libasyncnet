@@ -7,9 +7,9 @@ set(ASYNCNET_TESTS_SOURCES
 	"catch_amalgamated.cpp"
 	"net_types_test.cpp"
 	"json_test.cpp"
-	"networkRequestor_test.cpp"
+	"requestor_test.cpp"
 	"queue_test.cpp"
-	"UrlSession_test.cpp"
+	"session_test.cpp"
 )
 set(ASYNC_NETWORK_TESTS_HEADERS
 	"catch_amalgamated.hpp"

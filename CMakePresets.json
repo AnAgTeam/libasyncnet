@@ -11,7 +11,6 @@
             "CMAKE_C_COMPILER": "cl.exe",
             "CMAKE_CXX_COMPILER": "cl.exe",
             "CMAKE_TOOLCHAIN_FILE": "E:\\Programs\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake",
-            "ASYNCNET_INCLUDE_VCPKG": true,
             "ASYNCNET_BUILD_TESTS": true,
             "ASYNCNET_BUILD_EXAMPLES": true
           },

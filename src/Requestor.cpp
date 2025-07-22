@@ -1,12 +1,8 @@
-#include <asyncnet/NetworkRequestor.hpp>
+#include <asyncnet/Requestor.hpp>
 
 namespace asyncnet {
 
-	NetworkRequestError::NetworkRequestError() : NetworkRuntimeError("Request failed") {
-
-	}
-
-	NetworkRequestor::NetworkRequestor(const unsigned worker_count) :
+	Requestor::Requestor(const unsigned worker_count) :
 		pool_(coro::thread_pool::make_shared(
 			coro::thread_pool::options {
 				.thread_count = worker_count
@@ -21,7 +17,7 @@ namespace asyncnet {
 
 	}
 
-	NetworkRequestor::NetworkRequestor(const unsigned worker_count, std::shared_ptr<coro::thread_pool> executor_pool) :
+	Requestor::Requestor(const unsigned worker_count, std::shared_ptr<coro::thread_pool> executor_pool) :
 		pool_(coro::thread_pool::make_shared(
 			coro::thread_pool::options{
 				.thread_count = worker_count
@@ -32,7 +28,7 @@ namespace asyncnet {
 
 	}
 
-	coro::task<void> NetworkRequestor::perform_handle(curlpp::Easy& handle) const {
+	coro::task<void> Requestor::perform_handle(curlpp::Easy& handle) const {
 		co_await pool_->schedule();
 
 		std::exception_ptr exception;
@@ -53,18 +49,11 @@ namespace asyncnet {
 		}
 
 		// handle throwed exception
-		try {
-			std::rethrow_exception(exception);
-		}
-		catch (const curlpp::LogicError& e) {
-			std::throw_with_nested(NetworkRequestError());
-		}
-		catch (const curlpp::RuntimeError& e) {
-			std::throw_with_nested(NetworkRequestError());
-		}
-		catch (...) {
-			std::rethrow_exception(exception);
-		}
+		std::rethrow_exception(exception);
+	}
+
+	coro::task<void> Requestor::perform_request(std::shared_ptr<Request> request) const {
+		co_await perform_handle(request->handle_);
 	}
 
 };
