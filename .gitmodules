@@ -1,3 +1,6 @@
 [submodule "libcoro"]
 	path = libcoro
 	url = https://github.com/jbaldwin/libcoro
+[submodule "curlpp"]
+	path = curlpp
+	url = https://github.com/AnAgTeam/curlpp
