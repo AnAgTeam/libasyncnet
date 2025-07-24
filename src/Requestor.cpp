@@ -1,5 +1,11 @@
 #include <asyncnet/Requestor.hpp>
 
+#include <curlpp/Options.hpp>
+#include <sstream>
+
+constexpr int curl_cancel_request = 1;
+constexpr int curl_continue_request = 0;
+
 namespace asyncnet {
 
 	Requestor::Requestor(const unsigned worker_count) :
@@ -28,8 +34,18 @@ namespace asyncnet {
 
 	}
 
-	coro::task<void> Requestor::perform_handle(curlpp::Easy& handle) const {
+	NetworkTask Requestor::perform_handle(curlpp::Easy handle) const {
 		co_await pool_->schedule();
+
+		handle.setOpt(
+			curlpp::options::ProgressFunction([stop_token = co_await NetworkTask::get_stop_token](double, double, double, double) -> int {
+				return stop_token.stop_requested() ? curl_cancel_request : curl_continue_request;
+			})
+		);
+		handle.setOpt(curlpp::options::NoProgress(false));
+
+		std::ostringstream stream;
+		handle.setOpt(curlpp::options::WriteStream(&stream));
 
 		std::exception_ptr exception;
 		try {
@@ -45,15 +61,15 @@ namespace asyncnet {
 		}
 
 		if (!exception) {
-			co_return;
+			co_return Response(std::move(handle), std::move(stream));
 		}
 
 		// handle throwed exception
 		std::rethrow_exception(exception);
 	}
 
-	coro::task<void> Requestor::perform_request(std::shared_ptr<Request> request) const {
-		co_await perform_handle(request->handle_);
+	NetworkTask Requestor::perform_request(const Request& request) const {
+		return perform_handle(request.make_request_handle());
 	}
 
 };

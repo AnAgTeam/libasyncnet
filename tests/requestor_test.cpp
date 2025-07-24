@@ -1,6 +1,7 @@
 #include "catch_amalgamated.hpp"
 #include <asyncnet/Requestor.hpp>
 #include <coro/sync_wait.hpp>
+#include <coro/when_all.hpp>
 #include <curlpp/Options.hpp>
 #include <print>
 
@@ -10,7 +11,7 @@
 
 using namespace asyncnet;
 
-//#define ASYNCNET_ENABLE_TESTS_NETWORK
+#define ASYNCNET_ENABLE_TESTS_NETWORK
 
 TEST_CASE("Requestor copy, move") {
 	Requestor requestor(2);
@@ -26,17 +27,15 @@ TEST_CASE("NetworkRequestor request") {
 	auto worker = [](Requestor& requestor, std::string_view url) -> coro::task<void> {
 		curlpp::Easy easy;
 
-		std::ostringstream stream;
-
 		std::string str_url(url);
 		easy.setOpt(curlpp::options::Url(str_url));
-		easy.setOpt(curlpp::options::WriteStream(&stream));
 		
 		INFO(std::format("Performing {} ... (thread: {})", url, std::this_thread::get_id()));
 		try {
-			co_await requestor.perform_handle(easy);
+			auto resp = co_await requestor.perform_handle(std::move(easy));
+			REQUIRE(resp.get_status_code() == 200);
 		} 
-		catch (const NetworkRequestError& e) {
+		catch (const NetworkRuntimeError& e) {
 			INFO(std::format("Request {} failed! (thread: {})", url, std::this_thread::get_id()));
 
 			std::rethrow_exception(std::current_exception());
@@ -44,9 +43,7 @@ TEST_CASE("NetworkRequestor request") {
 		INFO(std::format("Finished {} ... (thread: {})", url, std::this_thread::get_id()));
 	};
 
-	auto start_time = std::chrono::steady_clock::now();
-	auto output_tasks(coro::sync_wait(coro::when_all(worker(requestor, "https://google.com"), worker(requestor, "https://www.opennet.ru"))));
-	auto end_time = std::chrono::steady_clock::now();
+	auto output_tasks(coro::sync_wait(coro::when_all(worker(requestor, "https://www.google.com/"), worker(requestor, "https://www.opennet.ru"))));
 
 	REQUIRE_NOTHROW(std::get<0>(output_tasks).return_value());
 	REQUIRE_NOTHROW(std::get<1>(output_tasks).return_value());
@@ -67,12 +64,9 @@ TEST_CASE("NetworkRequestor custom pool") {
 
 		curlpp::Easy easy;
 
-		std::ostringstream stream;
-
 		easy.setOpt(curlpp::options::Url(""));
-		easy.setOpt(curlpp::options::WriteStream(&stream));
 
-		REQUIRE_THROWS_AS(co_await requestor.perform_handle(easy), NetworkRuntimeError);
+		REQUIRE_THROWS_AS(co_await requestor.perform_handle(std::move(easy)), NetworkRuntimeError);
 
 		auto after_thread_id = std::this_thread::get_id();
 		REQUIRE(pool_thread_id == after_thread_id);

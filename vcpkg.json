@@ -4,6 +4,6 @@
 	"dependencies": [
 		"boost-json",
 		"boost-system",
-		"curlpp"
+		"curl"
 	]
 }

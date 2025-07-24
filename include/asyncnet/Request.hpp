@@ -11,9 +11,6 @@
 namespace asyncnet {
 
 	class Request {
-		friend class Requestor;
-		friend class AsyncSession;
-
 	public:
 		/// static field passed to @ref set_cookie_file for saving cookies in memory
 		static const std::string_view cookie_memory;
@@ -38,17 +35,21 @@ namespace asyncnet {
 		 */
 		explicit Request(const Request& copy_request, std::string_view url);
 
-		Request(const Request& request) = default;
+		Request(const Request& request);
 		Request(Request&& request) = default;
 
 		/**
-		 * Creates @ref std::shared_ptr from Request
-		 * @param args Arguments to pass to the Request constructor
+		 * Constructs @ref curlpp::Easy handle to perform request with all options inherited from this Request.
+		 * Pass handle to @ref Requstor::perform_handle, to actually make network request. Also, you can pass Request directly to @ref Requestor::perform_request
+		 * @return Request handle
 		 */
-		template<std::constructible_from<Request> ... Args>
-		std::shared_ptr<Request> make_shared(Args&& ... args) {
-			return std::make_shared<Request>(std::forward<Args>(args) ...);
-		}
+		curlpp::Easy make_request_handle() const;
+
+		/**
+		 * Set request new url. Note that it will clear all UrlParameters setted before!
+		 * @param url The url to set
+		 */
+		void set_url(std::string_view url);
 
 		/**
 		 * Set maximum redirects count for the request. If passed @ref std::nullopt, it means no redirects.
@@ -98,21 +99,39 @@ namespace asyncnet {
 		 */
 		void set_cookie_file(const std::string& cookie_file);
 
-		/**
-		 * Set the file in which the cookies will be stored. Can be passed @ref cookie_memory to save cookies in memory.
-		 * By default cookies don't saved
-		 * @param cookie_file Cookies file path
-		 */
-		void set_stop_token(std::stop_token stop_token);
-
 	protected:
 
-		void set_output_stream(std::ostringstream& stream);
-		curlpp::Easy clone_handle() const;
+		/**
+		 * Set Request option. If Request has already contains this option, it would set containing value. Otherwise it creates new option
+		 * @tparam Option Option type to be setted
+		 * @tparam OptionArg Option construct arguments
+		 */
+		template<typename Option, typename OptionArg>
+		void set_option(OptionArg&& arg) {
+			if (Option* vec_option = get_option<Option>()) {
+				vec_option->setValue(std::forward<OptionArg>(arg));
+			}
+			else {
+				options_.push_back(std::make_unique<Option>(std::forward<OptionArg>(arg)));
+			}
+		}
 
-		curlpp::Easy handle_;
+		/**
+		 * Get request option.
+		 * @tparam Option type to be getted
+		 * @return If Request contains Option, return pointer to it. Otherwise, return nullptr
+		 */
+		template<typename Option>
+		Option* get_option() {
+			auto iter = std::find_if(options_.begin(), options_.end(), [](const std::unique_ptr<curlpp::OptionBase>& vec_option) {
+				return Option::option == vec_option->getOption();
+			});
 
-		std::string url_;
+			return iter != options_.end() ? static_cast<Option*>(iter->get()) : nullptr;
+		}
+
+		std::vector<std::unique_ptr<curlpp::OptionBase>> options_;
+		std::string base_url_;
 	};
 
 	class PostRequest : public Request {

@@ -39,20 +39,17 @@ namespace asyncnet {
 		void set_cookie_file(const std::string& filename);
 
 		/**
-		 * Creates request @ref std::shared_ptr which inherits all options from AsyncSession request
+		 * Creates request which inherits all options from AsyncSession request
 		 * @tparam T The request to create
 		 * @tparam Args... Parameters, passed to the request's constructor
 		 * @param args... Parameters, passed to the request's constructor
 		 */
 		template<std::derived_from<Request> T, typename ... Args>
-		std::shared_ptr<T> make_request(Args&& ... args) {
-			return std::make_shared<T>(base_request_, args ...);
+		T make_request(Args&& ... args) {
+			return T(base_request_, std::forward<Args>(args) ...);
 		}
 
-		/**
-		 * @copydoc Requestor::perform_request(request)
-		 */
-		coro::task<std::string> perform_request(const std::shared_ptr<Request> request);
+		using Requestor::perform_request;
 
 	private:
 		void initialize_handle();

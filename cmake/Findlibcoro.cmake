@@ -10,6 +10,3 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/libcoro")
 set(LIBCORO_LIBRARIES libcoro)
 set(LIBCORO_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/libcoro/include")
 set(LIBCORO_FOUND ON)
-
-message(STATUS "libcoro libraries: ${LIBCORO_LIBRARIES}")
-message(STATUS "libcoro includes: ${LIBCORO_INCLUDE_DIRS}")

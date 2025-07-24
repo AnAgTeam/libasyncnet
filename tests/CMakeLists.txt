@@ -15,8 +15,6 @@ set(ASYNC_NETWORK_TESTS_HEADERS
 	"catch_amalgamated.hpp"
 )
 
-
-
 add_executable(asyncnetTests ${ASYNCNET_TESTS_SOURCES} ${ASYNCNET_TESTS_HEADERS})
 
 set_property(TARGET asyncnetTests PROPERTY CXX_STANDARD 23)

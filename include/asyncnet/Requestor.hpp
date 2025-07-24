@@ -2,6 +2,7 @@
 #include <asyncnet/Exceptions.hpp>
 #include <asyncnet/Request.hpp>
 #include <asyncnet/Response.hpp>
+#include <asyncnet/NetworkTask.hpp>
 
 #include <curlpp/Easy.hpp>
 #include <coro/thread_pool.hpp>
@@ -36,12 +37,12 @@ namespace asyncnet {
 		 * @throws NetworkRuntimeError If any runtime error
 		 * @throws NetworkLogicError If any logic error
 		 */
-		coro::task<void> perform_handle(curlpp::Easy& handle) const throw();
+		NetworkTask perform_handle(curlpp::Easy handle) const throw();
 
 		/** @copydoc perform_handle(handle)
 		 * Grabs handle from request and performs it
 		 */
-		coro::task<Response> perform_request(std::shared_ptr<Request> request) const throw();
+		NetworkTask perform_request(const Request& request) const throw();
 
 	private:
 

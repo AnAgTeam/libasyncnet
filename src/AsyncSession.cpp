@@ -14,15 +14,6 @@ namespace asyncnet {
 		initialize_handle();
 	}
 
-	coro::task<std::string> AsyncSession::perform_request(const std::shared_ptr<Request> request) {
-		std::ostringstream stream;
-
-		request->set_output_stream(stream);
-
-		co_await Requestor::perform_request(std::move(request));
-		co_return stream.str();
-	}
-
 	void AsyncSession::initialize_handle() {
 		set_cookie_file(std::string(Request::cookie_memory));
 	}
