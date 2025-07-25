@@ -201,7 +201,16 @@ namespace asyncnet {
 		 */
 		PostMultipartRequest(const Request& copy_request, std::string_view url, const MultipartForms& forms);
 
+		/**
+		 * Set multipart POST forms
+		 * @param forms The forms to set
+		 */
 		void set_forms(const MultipartForms& forms);
+
+		/**
+		 * Add new multipart POST form to existing ones
+		 * @param part The part to add
+		 */
 		void add_form(const MultipartPart& part);
 	};
 };
