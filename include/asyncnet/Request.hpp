@@ -12,8 +12,13 @@ namespace asyncnet {
 
 	class Request {
 	public:
+#if defined(_WIN32)
 		/// static field passed to @ref set_cookie_file for saving cookies in memory
-		static const std::string_view cookie_memory;
+		static constexpr std::string_view cookie_memory = "NULL";
+#else
+		/// static field passed to @ref set_cookie_file for saving cookies in memory
+		static constexpr std::string_view cookie_memory = "/dev/null";
+#endif
 		/// static field passed to @ref set_max_redirects for infinite redirects count
 		static constexpr long infinite_redirects = -1;
 
@@ -98,6 +103,8 @@ namespace asyncnet {
 		 * @param cookie_file Cookies file path
 		 */
 		void set_cookie_file(const std::string& cookie_file);
+		void set_cookie_file(std::string_view cookie_file);
+
 
 	protected:
 
@@ -156,4 +163,45 @@ namespace asyncnet {
 	};
 
 	using GetRequest = Request;
+
+	class HeadRequest : public Request {
+	public:
+		/** @copydoc Request::Request(url)
+		 * Constructs HEAD request
+		 * @param url Request URL
+		 */
+		HeadRequest(std::string_view url);
+
+		/** @copydoc Request::Request(url)
+		 * Constructs HEAD request
+		 * @param url Request URL
+		 */
+		HeadRequest(const Request& copy_request, std::string_view url);
+	};
+
+	class PostMultipartRequest : public Request {
+	public:
+		/** @copydoc Request::Request(url)
+		 * Constructs multipart POST request
+		 * @param url Request URL
+		 */
+		PostMultipartRequest(std::string_view url);
+
+		/** @copydoc Request::Request(url)
+		 * Constructs multipart POST request with given POST forms
+		 * @param url Request URL
+		 * @param forms Request forms
+		 */
+		PostMultipartRequest(std::string_view url, const MultipartForms& forms);
+
+		/** @copydoc Request::Request(url)
+		 * Constructs multipart POST request with given POST forms
+		 * @param url Request URL
+		 * @param forms Request forms
+		 */
+		PostMultipartRequest(const Request& copy_request, std::string_view url, const MultipartForms& forms);
+
+		void set_forms(const MultipartForms& forms);
+		void add_form(const MultipartPart& part);
+	};
 };

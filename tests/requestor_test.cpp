@@ -11,8 +11,6 @@
 
 using namespace asyncnet;
 
-#define ASYNCNET_ENABLE_TESTS_NETWORK
-
 TEST_CASE("Requestor copy, move") {
 	Requestor requestor(2);
 	Requestor requestor2 = requestor;

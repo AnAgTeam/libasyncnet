@@ -76,7 +76,7 @@ namespace asyncnet {
 	extern std::string url_escape(std::string_view str);
 
 	/**
-	 * Parse string as 'boost::json::object'
+	 * Parse string as @ref boost::json::object
 	 * @param from The string to parse
 	 * @return Returns parsed object
 	 * @throws @ref boost::system::system_error If parse failed

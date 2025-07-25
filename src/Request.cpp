@@ -3,16 +3,7 @@
 #include <curlpp/Options.hpp>
 #include <ranges>
 
-constexpr int curl_cancel_request = 1;
-constexpr int curl_continue_request = 0;
-
 namespace asyncnet {
-
-#if defined(_WIN32)
-	constexpr std::string_view Request::cookie_memory = "NULL";
-#else
-	constexpr std::string_view Request::cookie_memory = "/dev/null";
-#endif
 
 	Request::Request() {
 
@@ -87,6 +78,11 @@ namespace asyncnet {
 		headers_option->setValue(new_headers);
 	}
 
+	void Request::set_cookie_file(std::string_view cookie_file) {
+		std::string cookie_file_str(cookie_file);
+		set_cookie_file(cookie_file_str);
+	}
+
 	void Request::set_cookie_file(const std::string& cookie_file) {
 		set_option<curlpp::options::CookieFile>(cookie_file);
 	}
@@ -102,4 +98,39 @@ namespace asyncnet {
 		set_option<curlpp::options::PostFieldSizeLarge>(data.length());
 	}
 
+	HeadRequest::HeadRequest(std::string_view url) : Request(url) {
+		set_option<curlpp::options::NoBody>(true);
+	}
+
+	HeadRequest::HeadRequest(const Request& copy_request, std::string_view url) : Request(copy_request, url) {
+		set_option<curlpp::options::NoBody>(true);
+	}
+
+	PostMultipartRequest::PostMultipartRequest(std::string_view url) : Request(url) {
+		set_forms({});
+	}
+
+	PostMultipartRequest::PostMultipartRequest(std::string_view url, const MultipartForms& forms) : Request(url) {
+		set_forms(forms);
+	}
+
+	
+	PostMultipartRequest::PostMultipartRequest(const Request& copy_request, std::string_view url, const MultipartForms& forms) : Request(copy_request, url) {
+		set_forms(forms);
+	}
+
+	void PostMultipartRequest::set_forms(const MultipartForms& forms) {
+		set_option<curlpp::options::HttpPost>(forms);
+	}
+
+	void PostMultipartRequest::add_form(const MultipartPart& part) {
+		if (auto current_option = get_option<curlpp::options::HttpPost>()) {
+			MultipartForms new_forms = current_option->getValue();
+			new_forms.push_back(part);
+			current_option->setValue(new_forms);
+		}
+		else {
+			set_forms({ part });
+		}
+	}
 }

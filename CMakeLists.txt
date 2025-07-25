@@ -4,6 +4,7 @@
 
 option(ASYNCNET_INCLUDE_VCPKG "include vcpkg cmake" OFF)
 option(ASYNCNET_BUILD_TESTS "build tests" OFF)
+option(ASYNCNET_BUILD_TESTS_NETWORK "build tests with network request. Works only with ASYNCNET_BUILD_TESTS" OFF)
 option(ASYNCNET_BUILD_EXAMPLES "build examples" OFF)
 
 # without this vcpkg won't try to install dependencies
