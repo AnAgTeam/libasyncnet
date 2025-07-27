@@ -5,7 +5,7 @@ set(CURLPP_BUILD_SHARED_LIBS OFF)
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/curlpp")
 
 set(CURLPP_LIBRARIES curlpp::curlpp_static)
-set(CURLPP_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/curlpp/include")
+set(CURLPP_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/curlpp/include)
 set(CURLPP_FOUND ON)
 
 
