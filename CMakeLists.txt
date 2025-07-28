@@ -2,9 +2,8 @@
 
 # ---- PREPARE
 
-option(ASYNCNET_INCLUDE_VCPKG "include vcpkg cmake" OFF)
 option(ASYNCNET_BUILD_TESTS "build tests" OFF)
-option(ASYNCNET_BUILD_TESTS_NETWORK "build tests with network request. Works only with ASYNCNET_BUILD_TESTS" OFF)
+option(ASYNCNET_BUILD_TESTS_NETWORK "build tests with network request. Works only with ASYNCNET_BUILD_TESTS, Default=ON" ON)
 option(ASYNCNET_BUILD_EXAMPLES "build examples" OFF)
 
 # without this vcpkg won't try to install dependencies
@@ -78,8 +77,6 @@ set_target_properties(asyncnet PROPERTIES PREFIX "lib")
 
 install(DIRECTORY "include/" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/asyncnet.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
-
-install(TARGETS libcoro curlpp_static)
 
 install(TARGETS asyncnet
 	EXPORT asyncnet-targets
