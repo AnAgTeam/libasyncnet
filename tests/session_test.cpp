@@ -110,6 +110,8 @@ TEST_CASE("AsyncSession HEAD request") {
 	coro::sync_wait(worker(session));
 }
 
+#include <curlpp/Options.hpp>
+
 TEST_CASE("AsyncSession multipart POST request") {
 	AsyncSession session(1);
 

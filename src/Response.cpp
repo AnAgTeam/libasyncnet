@@ -15,9 +15,18 @@ namespace asyncnet{
 		return status;
 	}
 
-	std::string Response::get_text() const {
+	std::string Response::get_text() const & {
 		if (stream_) {
 			return stream_->str();
+		}
+		else {
+			return "";
+		}
+	}
+
+	std::string Response::get_text() && {
+		if (stream_) {
+			return std::move(*stream_).str();
 		}
 		else {
 			return "";

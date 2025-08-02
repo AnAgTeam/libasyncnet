@@ -9,12 +9,12 @@ namespace asyncnet {
 
 	}
 
-	Request::Request(std::string_view url) : base_url_(url) {
-		set_option<curlpp::options::Url>(base_url_);
+	Request::Request(std::string url) : base_url_(std::move(url)) {
+		set_option_<curlpp::options::Url>(base_url_);
 	}
 
-	Request::Request(const Request& other, std::string_view url) : Request(other) {
-		set_url(url);
+	Request::Request(const Request& other, std::string url) : Request(other) {
+		set_url(std::move(url));
 	}
 
 	Request::Request(const Request& other) {
@@ -32,9 +32,9 @@ namespace asyncnet {
 		return handle;
 	}
 
-	void Request::set_url(std::string_view url) {
-		base_url_ = url;
-		set_option<curlpp::options::Url>(base_url_);
+	void Request::set_url(std::string url) {
+		base_url_ = std::move(url);
+		set_option_<curlpp::options::Url>(base_url_);
 	}
 
 	void Request::set_max_redirects(const std::optional<long>& max_redirects) {
@@ -87,35 +87,35 @@ namespace asyncnet {
 		set_option<curlpp::options::CookieFile>(cookie_file);
 	}
 
-	PostRequest::PostRequest(std::string_view url, const std::string& data) : Request(url) {
+	PostRequest::PostRequest(std::string url, const std::string& data) : Request(std::move(url)) {
 		set_option<curlpp::options::PostFields>(data);
 		set_option<curlpp::options::PostFieldSizeLarge>(data.length());
 	}
 
 
-	PostRequest::PostRequest(const Request& copy_request, std::string_view url, const std::string& data) : Request(copy_request, url) {
+	PostRequest::PostRequest(const Request& copy_request, std::string url, const std::string& data) : Request(copy_request, std::move(url)) {
 		set_option<curlpp::options::PostFields>(data);
 		set_option<curlpp::options::PostFieldSizeLarge>(data.length());
 	}
 
-	HeadRequest::HeadRequest(std::string_view url) : Request(url) {
+	HeadRequest::HeadRequest(std::string url) : Request(url) {
 		set_option<curlpp::options::NoBody>(true);
 	}
 
-	HeadRequest::HeadRequest(const Request& copy_request, std::string_view url) : Request(copy_request, url) {
+	HeadRequest::HeadRequest(const Request& copy_request, std::string url) : Request(copy_request, std::move(url)) {
 		set_option<curlpp::options::NoBody>(true);
 	}
 
-	PostMultipartRequest::PostMultipartRequest(std::string_view url) : Request(url) {
+	PostMultipartRequest::PostMultipartRequest(std::string url) : Request(std::move(url)) {
 		set_forms({});
 	}
 
-	PostMultipartRequest::PostMultipartRequest(std::string_view url, const MultipartForms& forms) : Request(url) {
+	PostMultipartRequest::PostMultipartRequest(std::string url, const MultipartForms& forms) : Request(std::move(url)) {
 		set_forms(forms);
 	}
 
 	
-	PostMultipartRequest::PostMultipartRequest(const Request& copy_request, std::string_view url, const MultipartForms& forms) : Request(copy_request, url) {
+	PostMultipartRequest::PostMultipartRequest(const Request& copy_request, std::string url, const MultipartForms& forms) : Request(copy_request, std::move(url)) {
 		set_forms(forms);
 	}
 
@@ -124,7 +124,7 @@ namespace asyncnet {
 	}
 
 	void PostMultipartRequest::add_form(const MultipartPart& part) {
-		if (auto current_option = get_option<curlpp::options::HttpPost>()) {
+		if (auto current_option = get_option_<curlpp::options::HttpPost>()) {
 			MultipartForms new_forms = current_option->getValue();
 			new_forms.push_back(part);
 			current_option->setValue(new_forms);

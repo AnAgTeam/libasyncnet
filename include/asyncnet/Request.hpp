@@ -31,14 +31,14 @@ namespace asyncnet {
 		 * Constructs with URL. By default it's GET request
 		 * @param url URL to server
 		 */
-		explicit Request(std::string_view url);
+		explicit Request(std::string url);
 
 		/**
 		 * Copies options from copy_request, and then sets the URL
 		 * @param copy_request The request to copy options from
 		 * @param url URL to server
 		 */
-		explicit Request(const Request& copy_request, std::string_view url);
+		explicit Request(const Request& copy_request, std::string url);
 
 		Request(const Request& request);
 		Request(Request&& request) = default;
@@ -54,7 +54,7 @@ namespace asyncnet {
 		 * Set request new url. Note that it will clear all UrlParameters setted before!
 		 * @param url The url to set
 		 */
-		void set_url(std::string_view url);
+		void set_url(std::string url);
 
 		/**
 		 * Set maximum redirects count for the request. If passed @ref std::nullopt, it means no redirects.
@@ -103,8 +103,35 @@ namespace asyncnet {
 		 * @param cookie_file Cookies file path
 		 */
 		void set_cookie_file(const std::string& cookie_file);
+
+		/**
+		 * Set the file in which the cookies will be stored. Can be passed @ref cookie_memory to save cookies in memory.
+		 * By default cookies don't saved.
+		 * @param cookie_file Cookies file path
+		 */
 		void set_cookie_file(std::string_view cookie_file);
 
+		/**
+		 * Set Request any curl option, except url. To set url please use @ref set_url(url) and @ref set_url_parameters(params).
+		 * If Request has already contains this option, it would set containing value. Otherwise it creates new option
+		 * @tparam Option Option type to be setted
+		 * @tparam OptionArg Option construct arguments
+		 */
+		template<typename Option, typename OptionArg>
+			requires (Option::option != CURLOPT_URL)
+		void set_option(OptionArg&& arg) {
+			set_option_<Option>(std::forward<OptionArg>(arg));
+		}
+
+		/**
+		 * Get request option.
+		 * @tparam Option type to be getted
+		 * @return If Request contains Option, return pointer to it. Otherwise, return nullptr
+		 */
+		template<typename Option>
+		auto get_option() {
+			return get_option_<Option>();
+		}
 
 	protected:
 
@@ -114,8 +141,8 @@ namespace asyncnet {
 		 * @tparam OptionArg Option construct arguments
 		 */
 		template<typename Option, typename OptionArg>
-		void set_option(OptionArg&& arg) {
-			if (Option* vec_option = get_option<Option>()) {
+		void set_option_(OptionArg&& arg) {
+			if (Option* vec_option = get_option_<Option>()) {
 				vec_option->setValue(std::forward<OptionArg>(arg));
 			}
 			else {
@@ -129,7 +156,7 @@ namespace asyncnet {
 		 * @return If Request contains Option, return pointer to it. Otherwise, return nullptr
 		 */
 		template<typename Option>
-		Option* get_option() {
+		Option* get_option_() {
 			auto iter = std::find_if(options_.begin(), options_.end(), [](const std::unique_ptr<curlpp::OptionBase>& vec_option) {
 				return Option::option == vec_option->getOption();
 			});
@@ -148,7 +175,7 @@ namespace asyncnet {
 		 * @param url Request URL
 		 * @param data Request POST data
 		 */
-		explicit PostRequest(std::string_view url, const std::string& data);
+		explicit PostRequest(std::string url, const std::string& data);
 
 		/** @copydoc Request::Request(copy_request, url)
 		 * Constructs POST request with given data
@@ -156,7 +183,7 @@ namespace asyncnet {
 		 * @param url Request URL
 		 * @param data Request POST data
 		 */
-		explicit PostRequest(const Request& copy_request, std::string_view url, const std::string& data);
+		explicit PostRequest(const Request& copy_request, std::string url, const std::string& data);
 
 	private:
 
@@ -170,13 +197,13 @@ namespace asyncnet {
 		 * Constructs HEAD request
 		 * @param url Request URL
 		 */
-		HeadRequest(std::string_view url);
+		HeadRequest(std::string url);
 
 		/** @copydoc Request::Request(url)
 		 * Constructs HEAD request
 		 * @param url Request URL
 		 */
-		HeadRequest(const Request& copy_request, std::string_view url);
+		HeadRequest(const Request& copy_request, std::string url);
 	};
 
 	class PostMultipartRequest : public Request {
@@ -185,21 +212,21 @@ namespace asyncnet {
 		 * Constructs multipart POST request
 		 * @param url Request URL
 		 */
-		PostMultipartRequest(std::string_view url);
+		PostMultipartRequest(std::string url);
 
 		/** @copydoc Request::Request(url)
 		 * Constructs multipart POST request with given POST forms
 		 * @param url Request URL
 		 * @param forms Request forms
 		 */
-		PostMultipartRequest(std::string_view url, const MultipartForms& forms);
+		PostMultipartRequest(std::string url, const MultipartForms& forms);
 
 		/** @copydoc Request::Request(url)
 		 * Constructs multipart POST request with given POST forms
 		 * @param url Request URL
 		 * @param forms Request forms
 		 */
-		PostMultipartRequest(const Request& copy_request, std::string_view url, const MultipartForms& forms);
+		PostMultipartRequest(const Request& copy_request, std::string url, const MultipartForms& forms);
 
 		/**
 		 * Set multipart POST forms

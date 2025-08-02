@@ -31,6 +31,7 @@ namespace asyncnet {
 
 		/**
 		 * Switches to Requestor's thread, perfroms request, and then switches to special or executor_pool thread depending on construction @ref Requestor::Requestor.
+		 * Note, Requestor sets WriteStream to it's own buffer, ignoring user buffer.
 		 * If timedout the @ref NetworkRuntimeError code will be @ref TimeoutErrorCode, if cancelled the code will be @ref CancelledErrorCode
 		 * @param handle The handle to execute asyncronously 
 		 * @return Retuns awaitable task

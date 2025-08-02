@@ -66,3 +66,13 @@ TEST_CASE("Request options set") {
 		REQUIRE(max_redirs_option.getValue() == -1);
 	}
 }
+
+template<typename Option>
+concept RequestHasSetter = requires (Request request) { request.set_option<Option>(std::declval<typename Option::OptionType>()); };
+
+TEST_CASE("Request set_option") {
+	Request request("123");
+
+	REQUIRE_FALSE(RequestHasSetter<curlpp::options::Url>);
+	REQUIRE(RequestHasSetter<curlpp::options::SslCert>);
+}

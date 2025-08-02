@@ -38,6 +38,18 @@ namespace asyncnet {
 		/// @copydoc Request::set_cookie_file(filename)
 		void set_cookie_file(const std::string& filename);
 
+		/// @copydoc Request::set_option(arg)
+		template<typename Option, typename OptionArg>
+		void set_option(OptionArg&& arg) {
+			base_request_.set_option<Option>(std::forward<OptionArg>(arg));
+		}
+
+		/// @copydoc Request::get_option()
+		template<typename Option>
+		auto get_option() {
+			return base_request_.get_option<Option>();
+		}
+
 		/**
 		 * Creates request which inherits all options from AsyncSession request
 		 * @tparam T The request to create
@@ -45,7 +57,7 @@ namespace asyncnet {
 		 * @param args... Parameters, passed to the request's constructor
 		 */
 		template<std::derived_from<Request> T, typename ... Args>
-		T make_request(Args&& ... args) {
+		T make_request(Args&& ... args) const {
 			return T(base_request_, std::forward<Args>(args) ...);
 		}
 

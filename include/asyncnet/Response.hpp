@@ -19,10 +19,16 @@ namespace asyncnet {
 		long get_status_code() const;
 
 		/**
-		 * Get response body as string. If response not passed, return empty string
+		 * Copy response body as string
 		 * @return Response body
 		 */
-		std::string get_text() const;
+		std::string get_text() const &;
+
+		/**
+		 * Move response body as string
+		 * @return Response body
+		 */
+		std::string get_text() &&;
 
 	private:
 		curlpp::Easy handle_;
