@@ -36,6 +36,36 @@ TEST_CASE("AsyncSession cancellation") {
 	coro::sync_wait(worker(session));
 }
 
+TEST_CASE("AsyncSession cancellation from other coroutine") {
+	AsyncSession session(1);
+
+	auto worker = [](AsyncSession& session) -> coro::task<void> {
+		auto net_worker = [](AsyncSession& session) -> CancellingTask<void> {
+			try {
+				auto request = session.make_request<GetRequest>("https://google.com");
+				auto task = session.perform_request(request).update_stop_source(co_await awaitables::get_stop_source);
+
+				co_await task;
+
+				// never reach here
+				REQUIRE(false);
+			}
+			catch (const NetworkRuntimeError& e) {
+				if (e.whatCode() != CancelledErrorCode) {
+					std::rethrow_exception(std::current_exception());
+				}
+			}
+		};
+		
+		auto task = net_worker(session);
+		task.request_stop();
+		co_await task;
+
+	};
+
+	coro::sync_wait(worker(session));
+}
+
 #ifdef ASYNCNET_ENABLE_TESTS_NETWORK
 
 TEST_CASE("AsyncSession GET request") {

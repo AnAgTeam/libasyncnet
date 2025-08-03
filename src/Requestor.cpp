@@ -38,7 +38,7 @@ namespace asyncnet {
 		co_await pool_->schedule();
 
 		handle.setOpt(
-			curlpp::options::ProgressFunction([stop_token = co_await CancellingTask<Response>::get_stop_token](double, double, double, double) -> int {
+			curlpp::options::ProgressFunction([stop_token = co_await awaitables::get_stop_token](double, double, double, double) -> int {
 				return stop_token.stop_requested() ? curl_cancel_request : curl_continue_request;
 			})
 		);

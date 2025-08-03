@@ -19,6 +19,10 @@ namespace asyncnet {
 			explicit GetStopTokenTag() = default;
 		};
 
+		struct GetStopSourceTag {
+			explicit GetStopSourceTag() = default;
+		};
+
 		class BasicPromise {
 		public:
 			struct FinalAwaitable {
@@ -70,6 +74,18 @@ namespace asyncnet {
 				return Awaiter{ {}, stop_source_ };
 			}
 
+			auto await_transform(GetStopSourceTag) noexcept {
+				struct Awaiter : std::suspend_never {
+					std::stop_source& stop_source;
+
+					std::stop_source await_resume() noexcept {
+						return stop_source;
+					}
+				};
+
+				return Awaiter{ {}, stop_source_ };
+			}
+
 			template<typename T>
 			decltype(auto) await_transform(T&& coroutine) noexcept {
 				return std::forward<T>(coroutine);
@@ -81,6 +97,14 @@ namespace asyncnet {
 
 			bool request_stop() noexcept {
 				return stop_source_.request_stop();
+			}
+
+			void set_stop_source(std::stop_source stop_source) {
+				stop_source_.swap(stop_source);
+			}
+
+			std::stop_source get_stop_source() {
+				return stop_source_;
 			}
 
 		protected:
@@ -114,13 +138,14 @@ namespace asyncnet {
 			}
 
 			template<typename U>
-				requires ((return_is_reference && std::is_constructible_v<T, U&&>) ||
-					(!return_is_reference && std::is_constructible_v<stored_type, U&&>))
-			void return_value(U&& value) {
+				requires ((return_is_reference&& std::is_constructible_v<T, U&&>) ||
+			(!return_is_reference && std::is_constructible_v<stored_type, U&&>))
+				void return_value(U&& value) {
 				if constexpr (return_is_reference) {
 					T ref = static_cast<U&&>(value);
 					storage_.emplace<stored_type>(std::addressof(ref));
-				} else {
+				}
+				else {
 					storage_.emplace<stored_type>(std::forward<U>(value));
 				}
 			}
@@ -134,7 +159,7 @@ namespace asyncnet {
 				}
 			}
 
-			decltype(auto) result() & {
+			decltype(auto) result()& {
 				if (std::holds_alternative<stored_type>(storage_)) {
 					if constexpr (return_is_reference) {
 						return static_cast<T>(*std::get<stored_type>(storage_));
@@ -168,7 +193,7 @@ namespace asyncnet {
 				}
 			}
 
-			decltype(auto) result() && {
+			decltype(auto) result()&& {
 				if (std::holds_alternative<stored_type>(storage_)) {
 					if constexpr (return_is_reference) {
 						return static_cast<T>(*std::get<stored_type>(storage_));
@@ -221,6 +246,18 @@ namespace asyncnet {
 		};
 	};
 
+	namespace awaitables {
+		/**
+		 * co_await this field inside CancellingTask coroutine to get its @ref std::stop_token
+		 */
+		static constexpr detail::GetStopTokenTag get_stop_token{};
+
+		/**
+		 * co_await this field inside CancellingTask coroutine to get @ref std::stop_source with stop-state copied
+		 */
+		static constexpr detail::GetStopSourceTag get_stop_source{};
+	}
+
 	template<typename T>
 	class CancellingTask {
 	public:
@@ -243,11 +280,6 @@ namespace asyncnet {
 			std::coroutine_handle<promise_type> coroutine_ = nullptr;
 		};
 
-		/**
-		 * co_await this field inside NetworkTask coroutine to get its @ref std::stop_token
-		 */
-		static constexpr detail::GetStopTokenTag get_stop_token {};
-
 		CancellingTask() noexcept = default;
 		CancellingTask(coroutine_handle coroutine) noexcept : coroutine_(coroutine) {}
 		CancellingTask(const CancellingTask& other) = delete;
@@ -264,7 +296,7 @@ namespace asyncnet {
 			return TaskAwaitable{ coroutine_ };
 		}
 
-		auto operator co_await() const && noexcept {
+		auto operator co_await() const&& noexcept {
 			struct TaskAwaitable : Awaitable {
 				decltype(auto) await_resume() {
 					return std::move(coroutine_.promise()).result();
@@ -291,7 +323,38 @@ namespace asyncnet {
 		}
 
 		/**
-		 * Request coroutine to safe stop
+		 * Get the task @ref std::stop_source.
+		 * You can use this to connect CancellingTask stop sources
+		 * @return The stop_source with copy of stop-state of the task
+		 */
+		std::stop_source get_stop_source() {
+			return coroutine_.promise().get_stop_source();
+		}
+
+		/**
+		 * Set this coroutine @ref std::stop_source to provided.
+		 * Used to connect stop_source of two CancellingTask objects
+		 * @return Reference of this CancellingTask
+		 */
+		CancellingTask& update_stop_source(std::stop_source stop_source)& {
+			coroutine_.promise().set_stop_source(std::move(stop_source));
+			return *this;
+		}
+
+		/**
+		 * Set this coroutine @ref std::stop_source to provided.
+		 * Used to connect stop_source of two CancellingTask objects
+		 * @return Reference of this CancellingTask
+		 */
+		CancellingTask&& update_stop_source(std::stop_source stop_source)&& {
+			coroutine_.promise().set_stop_source(std::move(stop_source));
+			return std::move(*this);
+		}
+
+		/**
+		 * Request task to stop
+		 * @return True if @ref std::stop_source has a stop-state and invocation made a stop request.
+		 *         Otherwise return false
 		 */
 		bool request_stop() noexcept {
 			return coroutine_.promise().request_stop();
@@ -300,7 +363,7 @@ namespace asyncnet {
 	private:
 		coroutine_handle coroutine_ = nullptr;
 	};
-	
+
 
 	namespace detail {
 		template<typename T>
