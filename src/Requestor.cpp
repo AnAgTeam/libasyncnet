@@ -34,11 +34,11 @@ namespace asyncnet {
 
 	}
 
-	NetworkTask Requestor::perform_handle(curlpp::Easy handle) const {
+	CancellingTask<Response> Requestor::perform_handle(curlpp::Easy handle) const throw() {
 		co_await pool_->schedule();
 
 		handle.setOpt(
-			curlpp::options::ProgressFunction([stop_token = co_await NetworkTask::get_stop_token](double, double, double, double) -> int {
+			curlpp::options::ProgressFunction([stop_token = co_await CancellingTask<Response>::get_stop_token](double, double, double, double) -> int {
 				return stop_token.stop_requested() ? curl_cancel_request : curl_continue_request;
 			})
 		);
@@ -68,7 +68,7 @@ namespace asyncnet {
 		std::rethrow_exception(exception);
 	}
 
-	NetworkTask Requestor::perform_request(const Request& request) const {
+	CancellingTask<Response> Requestor::perform_request(const Request& request) const throw() {
 		return perform_handle(request.make_request_handle());
 	}
 

@@ -1,7 +1,7 @@
 #include "catch_amalgamated.hpp"
 
 #include <asyncnet/AsyncSession.hpp>
-#include <asyncnet/NetworkTask.hpp>
+#include <asyncnet/CancellingTask.hpp>
 
 #include <coro/sync_wait.hpp>
 #include <print>
@@ -54,7 +54,6 @@ TEST_CASE("AsyncSession GET request") {
 			"Test-Header: 123"
 		});
 
-		// REQUIRE_NOTHROW
 		auto resp = co_await session.perform_request(request);
 		CHECK(resp.get_status_code() == 200);
 
@@ -109,8 +108,6 @@ TEST_CASE("AsyncSession HEAD request") {
 
 	coro::sync_wait(worker(session));
 }
-
-#include <curlpp/Options.hpp>
 
 TEST_CASE("AsyncSession multipart POST request") {
 	AsyncSession session(1);

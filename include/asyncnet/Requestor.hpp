@@ -2,7 +2,7 @@
 #include <asyncnet/Exceptions.hpp>
 #include <asyncnet/Request.hpp>
 #include <asyncnet/Response.hpp>
-#include <asyncnet/NetworkTask.hpp>
+#include <asyncnet/CancellingTask.hpp>
 
 #include <curlpp/Easy.hpp>
 #include <coro/thread_pool.hpp>
@@ -38,12 +38,12 @@ namespace asyncnet {
 		 * @throws NetworkRuntimeError If any runtime error
 		 * @throws NetworkLogicError If any logic error
 		 */
-		NetworkTask perform_handle(curlpp::Easy handle) const throw();
+		CancellingTask<Response> perform_handle(curlpp::Easy handle) const throw();
 
 		/** @copydoc perform_handle(handle)
 		 * Grabs handle from request and performs it
 		 */
-		NetworkTask perform_request(const Request& request) const throw();
+		CancellingTask<Response> perform_request(const Request& request) const throw();
 
 	private:
 
