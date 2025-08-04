@@ -139,23 +139,23 @@ namespace asyncnet {
 
 			template<typename U>
 				requires ((return_is_reference&& std::is_constructible_v<T, U&&>) ||
-			(!return_is_reference && std::is_constructible_v<stored_type, U&&>))
-				void return_value(U&& value) {
+					(!return_is_reference && std::is_constructible_v<stored_type, U&&>))
+			void return_value(U&& value) {
 				if constexpr (return_is_reference) {
 					T ref = static_cast<U&&>(value);
-					storage_.emplace<stored_type>(std::addressof(ref));
+					storage_.template emplace<stored_type>(std::addressof(ref));
 				}
 				else {
-					storage_.emplace<stored_type>(std::forward<U>(value));
+					storage_.template emplace<stored_type>(std::forward<U>(value));
 				}
 			}
 
 			void return_value(stored_type&& value) requires (!return_is_reference) {
 				if constexpr (std::is_move_constructible_v<stored_type>) {
-					storage_.emplace<stored_type>(std::move(value));
+					storage_.template emplace<stored_type>(std::move(value));
 				}
 				else {
-					storage_.emplace<stored_type>(value);
+					storage_.template emplace<stored_type>(value);
 				}
 			}
 
@@ -289,7 +289,7 @@ namespace asyncnet {
 		auto operator co_await() const& noexcept {
 			struct TaskAwaitable : Awaitable {
 				decltype(auto) await_resume() const {
-					return coroutine_.promise().result();
+					return this->coroutine_.promise().result();
 				}
 			};
 
@@ -299,7 +299,7 @@ namespace asyncnet {
 		auto operator co_await() const&& noexcept {
 			struct TaskAwaitable : Awaitable {
 				decltype(auto) await_resume() {
-					return std::move(coroutine_.promise()).result();
+					return std::move(this->coroutine_.promise()).result();
 				}
 			};
 

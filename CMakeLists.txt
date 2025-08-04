@@ -12,6 +12,12 @@ if (CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg.cmake")
 	include(${CMAKE_TOOLCHAIN_FILE})
 endif()
 
+if (APPLE AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 17.0)
+    message(STATUS "Found clang version <= 16")
+    # Add flag to enable std::stop_source
+    add_compile_options(-fexperimental-library)
+endif()
+
 project(asyncnet VERSION 2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
