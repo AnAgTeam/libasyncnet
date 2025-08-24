@@ -46,6 +46,20 @@ namespace asyncnet {
 		UrlParameters& operator=(std::initializer_list<std::pair<std::string_view, std::string_view>> initial) &;
 
 		/**
+		* Copy operator=
+		* @param other The UrlParameters to copy parameters from
+		* @return Returns *this
+		*/
+		UrlParameters& operator=(const UrlParameters& other) &;
+
+		/**
+		* Emplace new URL parameter
+		* @param param The parameter to add
+		* @return Returns *this
+		*/
+		UrlParameters& operator+=(std::pair<std::string_view, std::string_view> param) &;
+
+		/**
 		 * Appends all url parameters to the url
 		 * @param url Url to apply the parameters
 		 * @return Returns new string with url and parameters

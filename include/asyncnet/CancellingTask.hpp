@@ -286,6 +286,20 @@ namespace asyncnet {
 		CancellingTask(CancellingTask&& other) noexcept : coroutine_(std::exchange(other.coroutine_, nullptr)) {}
 		~CancellingTask() noexcept = default;
 
+		CancellingTask& operator=(const CancellingTask& other) = delete;
+
+		CancellingTask& operator=(const CancellingTask&& other) {
+			if (std::addressof(other) == this) {
+				return *this;
+			}
+
+			if (coroutine_) {
+				coroutine_.destroy();
+			}
+			coroutine_ = std::exchange(other.coroutine_, nullptr);
+			return *this;
+		};
+
 		auto operator co_await() const& noexcept {
 			struct TaskAwaitable : Awaitable {
 				decltype(auto) await_resume() const {

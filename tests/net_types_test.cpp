@@ -43,10 +43,25 @@ TEST_CASE("UrlParameter expand copy") {
 
 TEST_CASE("UrlParameter operator=") {
 	UrlParameters params;
+	UrlParameters params2;
+
 	params = {
 		{ "test_int", "1" },
 		{ "test_str", "test" }
 	};
+	params2 = params;
 
 	REQUIRE(params.get() == "test_int=1&test_str=test");
+	REQUIRE(params.get() == params2.get());
+}
+
+TEST_CASE("UrlParameters operator+=") {
+	UrlParameters params = {
+		{ "test_int", "1" },
+		{ "test_str", "test" }
+	};
+
+	params += { "test_str2", "true" };
+
+	REQUIRE(params.get() == "test_int=1&test_str=test&test_str2=true");
 }

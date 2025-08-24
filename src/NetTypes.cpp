@@ -20,6 +20,16 @@ namespace asyncnet {
         return *this;
     }
 
+    UrlParameters& UrlParameters::operator=(const UrlParameters& other)& {
+        params_ = other.params_;
+        return *this;
+    }
+
+    UrlParameters& UrlParameters::operator+=(std::pair<std::string_view, std::string_view> param)& {
+        append_items({ param });
+        return *this;
+    }
+
     std::string UrlParameters::apply(std::string_view url) const {
         std::string out(url);
         out += "?";
