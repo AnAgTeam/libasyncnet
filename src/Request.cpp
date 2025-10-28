@@ -29,6 +29,9 @@ namespace asyncnet {
 		for (auto& item : options_) {
 			handle.setOpt(item->clone());
 		}
+		if (share_) {
+			share_->add_handle(handle);
+		}
 		return handle;
 	}
 
@@ -85,6 +88,14 @@ namespace asyncnet {
 
 	void Request::set_cookie_file(const std::string& cookie_file) {
 		set_option<curlpp::options::CookieFile>(cookie_file);
+	}
+
+	void Request::set_share(std::shared_ptr<CurlShared> share) noexcept {
+		share_ = std::move(share);
+	}
+
+	const std::shared_ptr<CurlShared>& Request::get_share() const noexcept {
+		return share_;
 	}
 
 	PostRequest::PostRequest(std::string url, const std::string& data) : Request(std::move(url)) {

@@ -1,11 +1,11 @@
 #include <asyncnet/Response.hpp>
 
 namespace asyncnet{
-	Response::Response(curlpp::Easy handle) : handle_(std::move(handle)) {
+	Response::Response(curlpp::Easy&& handle) : handle_(std::move(handle)) {
 
 	}
 
-	Response::Response(curlpp::Easy handle, std::ostringstream&& stream) : handle_(std::move(handle)), stream_(std::move(stream)) {
+	Response::Response(curlpp::Easy&& handle, std::ostringstream&& stream) : handle_(std::move(handle)), stream_(std::move(stream)) {
 
 	}
 

@@ -6,15 +6,17 @@
 #include <curlpp/Infos.hpp>
 
 namespace asyncnet {
-	AsyncSession::AsyncSession(unsigned worker_count) : Requestor(worker_count) {
-		initialize_handle();
+	AsyncSession::AsyncSession() : requestor_(AsyncRequestor::make_shared()) {
+		initialize_session();
 	}
 
-	AsyncSession::AsyncSession(Requestor&& requestor) : Requestor(std::move(requestor)) {
-		initialize_handle();
+	AsyncSession::AsyncSession(std::shared_ptr<AsyncRequestor> requestor) : requestor_(std::move(requestor)) {
+		initialize_session();
 	}
 
-	void AsyncSession::initialize_handle() {
+	void AsyncSession::initialize_session() {
+		base_request_.set_share(std::make_shared<CurlShared>());
+		base_request_.get_share()->set_cookies_shared(true);
 		set_cookie_file(std::string(Request::cookie_memory));
 	}
 
@@ -42,6 +44,10 @@ namespace asyncnet {
 
 	void AsyncSession::set_cookie_file(const std::string& filename) {
 		base_request_.set_cookie_file(filename);
+	}
+
+	CancellingTask<Response> AsyncSession::perform_request(const Request& request) {
+		return requestor_->perform_request(request);
 	}
 
 };

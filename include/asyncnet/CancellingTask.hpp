@@ -1,5 +1,5 @@
 #pragma once
-#include <asyncnet/Response.hpp>
+#include <stdexcept>
 #include <coroutine>
 #include <variant>
 #include <stop_token>
@@ -334,6 +334,13 @@ namespace asyncnet {
 
 		coroutine_handle handle() {
 			return coroutine_;
+		}
+
+		bool resume() {
+			if (!coroutine_.done()) {
+				coroutine_.resume();
+			}
+			return !coroutine_.done();
 		}
 
 		/**

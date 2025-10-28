@@ -34,7 +34,7 @@ namespace asyncnet {
 
 	}
 
-	CancellingTask<Response> Requestor::perform_handle(curlpp::Easy handle) const throw() {
+	CancellingTask<Response> Requestor::perform_handle(curlpp::Easy handle) {
 		co_await pool_->schedule();
 
 		handle.setOpt(
@@ -68,7 +68,7 @@ namespace asyncnet {
 		std::rethrow_exception(exception);
 	}
 
-	CancellingTask<Response> Requestor::perform_request(const Request& request) const throw() {
+	CancellingTask<Response> Requestor::perform_request(const Request& request) {
 		return perform_handle(request.make_request_handle());
 	}
 

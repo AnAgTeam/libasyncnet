@@ -1,6 +1,7 @@
 #pragma once
 #include <asyncnet/detail/Concepts.hpp>
 #include <asyncnet/NetTypes.hpp>
+#include <asyncnet/CurlShared.hpp>
 
 #include <curlpp/Easy.hpp>
 #include <list>
@@ -23,7 +24,7 @@ namespace asyncnet {
 		static constexpr long infinite_redirects = -1;
 
 		/**
-		 * Constructs invalid request without URL. Used only as options container
+		 * Constructs invalid request without URL
 		 */
 		Request();
 
@@ -38,17 +39,23 @@ namespace asyncnet {
 		 * @param copy_request The request to copy options from
 		 * @param url URL to server
 		 */
-		explicit Request(const Request& copy_request, std::string url);
+		[[deprecated("Use inherit_from()")]] explicit Request(const Request& copy_request, std::string url);
 
 		Request(const Request& request);
 		Request(Request&& request) = default;
 
 		/**
 		 * Constructs @ref curlpp::Easy handle to perform request with all options inherited from this Request.
-		 * Pass handle to @ref Requstor::perform_handle, to actually make network request. Also, you can pass Request directly to @ref Requestor::perform_request
+		 * Pass handle to @ref Requstor::perform_handle, to actually make network request.
+		 * Also, you can pass Request directly to @ref Requestor::perform_request
 		 * @return Request handle
 		 */
 		curlpp::Easy make_request_handle() const;
+
+		/**
+		 * @todo
+		 */
+		Request& inherit_from(const Request& other);
 
 		/**
 		 * Set request new url. Note that it will clear all UrlParameters setted before!
@@ -112,6 +119,20 @@ namespace asyncnet {
 		void set_cookie_file(std::string_view cookie_file);
 
 		/**
+		 * Set the request share context. It is used to share cookies, ssl, connection data, etc.
+		 * @see CurlShared
+		 * @param share The share context
+		 */
+		void set_share(std::shared_ptr<CurlShared> share) noexcept;
+
+		/**
+		 * Get the request share context.
+		 * @see CurlShared
+		 * @param share The share context
+		 */
+		const std::shared_ptr<CurlShared>& get_share() const noexcept;
+
+		/**
 		 * Set Request any curl option, except url. To set url please use @ref set_url(url) and @ref set_url_parameters(params).
 		 * If Request has already contains this option, it would set containing value. Otherwise it creates new option
 		 * @tparam Option Option type to be setted
@@ -126,7 +147,7 @@ namespace asyncnet {
 		/**
 		 * Get request option.
 		 * @tparam Option type to be getted
-		 * @return If Request contains Option, return pointer to it. Otherwise, return nullptr
+		 * @return If Request contains Option, return raw pointer to it. Otherwise, return nullptr
 		 */
 		template<typename Option>
 		auto get_option() {
@@ -153,7 +174,7 @@ namespace asyncnet {
 		/**
 		 * Get request option.
 		 * @tparam Option type to be getted
-		 * @return If Request contains Option, return pointer to it. Otherwise, return nullptr
+		 * @return If Request contains Option, return raw pointer to it. Otherwise, return nullptr
 		 */
 		template<typename Option>
 		Option* get_option_() {
@@ -166,6 +187,7 @@ namespace asyncnet {
 
 		std::vector<std::unique_ptr<curlpp::OptionBase>> options_;
 		std::string base_url_;
+		std::shared_ptr<CurlShared> share_;
 	};
 
 	class PostRequest : public Request {

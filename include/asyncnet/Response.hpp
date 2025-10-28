@@ -6,8 +6,8 @@
 namespace asyncnet {
 	class Response {
 	public:
-		explicit Response(curlpp::Easy handle);
-		explicit Response(curlpp::Easy handle, std::ostringstream&& text_stream);
+		explicit Response(curlpp::Easy&& handle);
+		explicit Response(curlpp::Easy&& handle, std::ostringstream&& text_stream);
 
 		Response(const Response& other) = delete;
 		Response(Response&& other) = default;
