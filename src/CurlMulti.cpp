@@ -1,0 +1,129 @@
+#include <asyncnet/CurlMulti.hpp>
+#include <asyncnet/Exceptions.hpp>
+
+#include <coro/sync_wait.hpp>
+#include <curlpp/Easy.hpp>
+#include <curlpp/Exception.hpp>
+#include <curlpp/Options.hpp>
+#include <numeric>
+#include <ranges>
+
+using std::views::iota;
+
+constexpr int curl_cancel_request = 1;
+constexpr int curl_continue_request = 0;
+
+namespace asyncnet {
+
+	CurlMulti::CurlMulti() : handle_(curl_multi_init()) {
+		curlpp::runtimeAssert("Error when trying to curl_multi_init() a handle", handle_ != nullptr);
+	}
+
+	CurlMulti::CurlMulti(CURLM* handle) noexcept : handle_(handle) {}
+
+	CurlMulti::CurlMulti(CurlMulti&& other) noexcept : handle_(std::exchange(other.handle_, nullptr)) {
+		
+	}
+
+	CurlMulti::~CurlMulti() {
+		coro::sync_wait(cleanup());
+		curl_multi_cleanup(handle_);
+	}
+
+	CurlMulti& CurlMulti::operator=(CurlMulti&& other) noexcept {
+		if (std::addressof(other) != this) {
+			coro::sync_wait(cleanup());
+			curl_multi_cleanup(handle_);
+			handle_ = std::exchange(other.handle_, nullptr);
+		}
+		return *this;
+	}
+
+	coro::task<int> CurlMulti::yield(int timeout_ms) {
+		int running_handles;
+		CURLMcode error_code = curl_multi_perform(handle_, &running_handles);
+		if (error_code != CURLM_OK) {
+			throw RuntimeError("Error when trying to curl_multi_perform()");
+		}
+
+		//if (running_handles == 0) {
+		//	co_return 0;
+		//}
+
+		int events_count;
+		error_code = curl_multi_poll(handle_, nullptr, 0, timeout_ms, &events_count);
+		if (error_code != CURLM_OK) {
+			throw RuntimeError("Error when trying to curl_multi_poll()");
+		}
+
+		CURLMsg* msg;
+		int msg_count;
+		msg = curl_multi_info_read(handle_, &msg_count);
+
+		while(msg) {
+			if (msg && msg->msg == CURLMSG_DONE) {
+				auto& handle_awaiter = condition_awaiters_.at(msg->easy_handle);
+				curl_multi_remove_handle(handle_, msg->easy_handle);
+				handle_awaiter.exit_code = msg->data.result;
+				co_await handle_awaiter.cv.notify_all();
+				// performer is responsible for cleaning up awaiters
+			}
+			msg = curl_multi_info_read(handle_, &msg_count);
+		}
+
+		co_return running_handles;
+	}
+
+	coro::task<void> CurlMulti::cleanup() {
+		return abort_all();
+	}
+
+	coro::task<void> CurlMulti::abort_all() {
+		coro::scoped_lock lock = co_await mutex_.scoped_lock();
+		for (auto& [handle, awaiter_context] : condition_awaiters_) {
+			curl_multi_remove_handle(handle_, handle);
+			// TODO: add cancel
+			awaiter_context.exit_code = CURLE_ABORTED_BY_CALLBACK;
+			co_await awaiter_context.cv.notify_one();
+		}
+		assert(condition_awaiters_.empty());
+	}
+
+	CancellingTask<Response> CurlMulti::perform_handle(curlpp::Easy handle) {
+		// Set progress function to control stop state
+		handle.setOpt(
+			curlpp::options::ProgressFunction([stop_token = co_await awaitables::get_stop_token](double, double, double, double) -> int {
+				return stop_token.stop_requested() ? curl_cancel_request : curl_continue_request;
+			})
+		);
+		handle.setOpt(curlpp::options::NoProgress(false));
+
+		// set response output stream
+		std::ostringstream stream;
+		handle.setOpt(curlpp::options::WriteStream(&stream));
+
+		coro::scoped_lock lock = co_await mutex_.scoped_lock();
+
+		HandleAwaiterContext& context = condition_awaiters_[handle.getHandle()];
+		curl_multi_add_handle(handle_, handle.getHandle());
+		curl_multi_wakeup(handle_);
+
+		co_await context.cv.wait(lock, [&context] { return context.exit_code.has_value(); });
+
+		CURLcode exit_code = *context.exit_code;
+		lock = co_await mutex_.scoped_lock();
+		condition_awaiters_.erase(handle.getHandle());
+		lock.unlock();
+
+		curlpp::libcurlRuntimeAssert("Multi network request failed", exit_code);
+		co_return Response(std::move(handle), std::move(stream));
+	}
+
+	CURLM* CurlMulti::get_handle() const noexcept {
+		return handle_;
+	}
+
+	void CurlMulti::wakeup_polling() const {
+		curl_multi_wakeup(handle_);
+	}
+}

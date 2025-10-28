@@ -1,7 +1,7 @@
 #include "catch_amalgamated.hpp"
 
 #include <asyncnet/AsyncSession.hpp>
-#include <asyncnet/CancellingTask.hpp>
+#include <asyncnet/Exceptions.hpp>
 
 #include <coro/sync_wait.hpp>
 #include <print>
@@ -11,7 +11,7 @@
 using namespace asyncnet;
 
 TEST_CASE("AsyncSession cancellation") {
-	AsyncSession session(1);
+	AsyncSession session;
 
 	auto worker = [](AsyncSession& session) -> coro::task<void> {
 		auto request = session.make_request<GetRequest>("https://google.com");
@@ -37,7 +37,7 @@ TEST_CASE("AsyncSession cancellation") {
 }
 
 TEST_CASE("AsyncSession cancellation from other coroutine") {
-	AsyncSession session(1);
+	AsyncSession session;
 
 	auto worker = [](AsyncSession& session) -> coro::task<void> {
 		auto net_worker = [](AsyncSession& session) -> CancellingTask<void> {
@@ -69,7 +69,7 @@ TEST_CASE("AsyncSession cancellation from other coroutine") {
 #ifdef ASYNCNET_ENABLE_TESTS_NETWORK
 
 TEST_CASE("AsyncSession GET request") {
-	AsyncSession session(1);
+	AsyncSession session;
 
 	auto worker = [](AsyncSession& session) -> coro::task<void> {
 		boost::json::object expected_args = {
@@ -101,7 +101,7 @@ TEST_CASE("AsyncSession GET request") {
 }
 
 TEST_CASE("AsyncSession POST request") {
-	AsyncSession session(1);
+	AsyncSession session;
 
 	auto worker = [](AsyncSession& session) -> coro::task<void> {
 		std::string test_data = "testdata=true&str=mmm";
@@ -124,7 +124,7 @@ TEST_CASE("AsyncSession POST request") {
 }
 
 TEST_CASE("AsyncSession HEAD request") {
-	AsyncSession session(1);
+	AsyncSession session;
 
 	auto worker = [](AsyncSession& session) -> coro::task<void> {
 		auto request = session.make_request<HeadRequest>("https://httpbin.org/get");
@@ -140,7 +140,7 @@ TEST_CASE("AsyncSession HEAD request") {
 }
 
 TEST_CASE("AsyncSession multipart POST request") {
-	AsyncSession session(1);
+	AsyncSession session;
 
 	auto worker = [](AsyncSession& session) -> coro::task<void> {
 		MultipartPart test_data_content = new MultipartContentPart("test", "test1");

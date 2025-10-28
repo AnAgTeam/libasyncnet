@@ -1,15 +1,14 @@
 #pragma once
 #include <asyncnet/Exceptions.hpp>
 #include <asyncnet/Request.hpp>
-#include <asyncnet/Response.hpp>
-#include <asyncnet/CancellingTask.hpp>
+#include <asyncnet/SessionRequestor.hpp>
 
 #include <curlpp/Easy.hpp>
 #include <coro/thread_pool.hpp>
 
 namespace asyncnet {
 
-	class Requestor {
+	class Requestor : public SessionRequestor {
 	public:
 		/**
 		 * Constructs with thread pool with worker_count size. After request user code executed in another special thread
@@ -26,7 +25,7 @@ namespace asyncnet {
 
 		Requestor(const Requestor& other) = default;
 		Requestor(Requestor&& other) = default;
-		~Requestor() = default;
+		virtual ~Requestor() = default;
 
 		/**
 		 * Switches to Requestor's thread, perfroms request, and then switches to special or executor_pool thread depending on construction @ref Requestor::Requestor.
@@ -37,12 +36,12 @@ namespace asyncnet {
 		 * @throws NetworkRuntimeError If any runtime error
 		 * @throws NetworkLogicError If any logic error
 		 */
-		CancellingTask<Response> perform_handle(curlpp::Easy handle) const throw();
+		virtual [[nodiscard]] CancellingTask<Response> perform_handle(curlpp::Easy handle) override;
 
 		/** @copydoc perform_handle(handle)
 		 * Grabs handle from request and performs it
 		 */
-		CancellingTask<Response> perform_request(const Request& request) const throw();
+		virtual [[nodiscard]] CancellingTask<Response> perform_request(const Request& request) override;
 
 	private:
 

@@ -1,6 +1,6 @@
 #pragma once
 #include <asyncnet/NetTypes.hpp>
-#include <asyncnet/Requestor.hpp>
+#include <asyncnet/AsyncRequestor.hpp>
 #include <asyncnet/Request.hpp>
 
 #include <list>
@@ -12,10 +12,21 @@
 
 namespace asyncnet {
 
-	class AsyncSession : Requestor {
+	class AsyncSession {
 	public:
-		explicit AsyncSession(const unsigned worker_count);
-		explicit AsyncSession(Requestor&& requestor);
+
+		/**
+		 * Initialize asyncronous session. By default requestor is @ref AsyncRequestor.
+		 * Shares cookies with all requests created from session.
+		 */
+		AsyncSession();
+
+		/**
+		 * Initialize asyncronous session with user's requestor
+		 * @see Requestor, @see AsyncRequestor
+		 * @param requestor Requestor which will perform all the session requests.
+		 */
+		explicit AsyncSession(std::shared_ptr<AsyncRequestor> requestor);
 		AsyncSession(const AsyncSession& other) = default;
 		AsyncSession(AsyncSession&& other) = default;
 		~AsyncSession() = default;
@@ -61,11 +72,22 @@ namespace asyncnet {
 			return T(base_request_, std::forward<Args>(args) ...);
 		}
 
-		using Requestor::perform_request;
+		/**
+		 * @brief perform request.
+		 * If timedout the @ref NetworkRuntimeError code will be @ref TimeoutErrorCode, if cancelled the code will be @ref CancelledErrorCode.
+		 * Use task @see CancellingTask::request_stop() to cancel the request.
+		 * @see Requestor, @see AsyncRequestor
+		 * @param request The request to perform asyncronously
+		 * @return Awaitable task returning @see Response from request
+		 * @throws NetworkRuntimeError If any runtime error
+		 * @throws NetworkLogicError If any logic error
+		 */
+		[[nodiscard]] CancellingTask<Response> perform_request(const Request& request);
 
 	private:
-		void initialize_handle();
+		void initialize_session();
 
+		std::shared_ptr<AsyncRequestor> requestor_;
 		Request base_request_;
 		std::list<std::string> default_headers_;
 	};

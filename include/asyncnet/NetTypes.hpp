@@ -14,9 +14,13 @@ namespace asyncnet {
 	class UrlParameters {
 	public:
 
+		/**
+		 * Initialize empty URL parameters string.
+		 */
 		UrlParameters() = default;
 		UrlParameters(UrlParameters& other) = default;
 		UrlParameters(UrlParameters&& other) = default;
+		~UrlParameters() = default;
 
 		/**
 		 * Constructs from values from 'initilizer_list'

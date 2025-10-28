@@ -19,4 +19,12 @@ namespace asyncnet {
 	 * Call @ref whatCode() to get error code
 	 */
 	using NetworkRuntimeError = curlpp::LibcurlRuntimeError;
+
+	struct RuntimeError : std::runtime_error {
+		using std::runtime_error::runtime_error;
+	};
+
+	struct LogicError : std::logic_error {
+		using std::logic_error::logic_error;
+	};
 };
