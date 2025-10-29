@@ -1,6 +1,6 @@
 #include "catch_amalgamated.hpp"
 
-#include <asyncnet/Requestor.hpp>
+#include <asyncnet/Request.hpp>
 
 #include <curlpp/Options.hpp>
 #include <coro/sync_wait.hpp>

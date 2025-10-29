@@ -1,5 +1,8 @@
-#include "catch_amalgamated.hpp"
+#include "CoroTest.hpp"
 #include <asyncnet/Requestor.hpp>
+#include <asyncnet/Exceptions.hpp>
+
+#include <coro/thread_pool.hpp>
 #include <coro/sync_wait.hpp>
 #include <coro/when_all.hpp>
 #include <curlpp/Options.hpp>
@@ -11,18 +14,12 @@
 
 using namespace asyncnet;
 
-TEST_CASE("Requestor copy, move") {
-	Requestor requestor(2);
-	Requestor requestor2 = requestor;
-	Requestor requestor3 = std::move(requestor);
-}
-
 #if defined(ASYNCNET_ENABLE_TESTS_NETWORK)
 
 TEST_CASE("NetworkRequestor request") {
-	Requestor requestor(2);
+	std::shared_ptr<Requestor> requestor = Requestor::make_shared();
 
-	auto worker = [](Requestor& requestor, std::string_view url) -> coro::task<void> {
+	auto worker = [](std::shared_ptr<Requestor> requestor, std::string_view url) -> coro::task<void> {
 		curlpp::Easy easy;
 
 		std::string str_url(url);
@@ -30,7 +27,7 @@ TEST_CASE("NetworkRequestor request") {
 		
 		INFO(std::format("Performing {} ... (thread: {})", url, std::this_thread::get_id()));
 		try {
-			auto resp = co_await requestor.perform_handle(std::move(easy));
+			auto resp = co_await requestor->perform_handle(std::move(easy));
 			REQUIRE(resp.get_status_code() == 200);
 		} 
 		catch (const NetworkRuntimeError& e) {
@@ -47,28 +44,16 @@ TEST_CASE("NetworkRequestor request") {
 	REQUIRE_NOTHROW(std::get<1>(output_tasks).return_value());
 }
 
-#endif
+CORO_TEST_CASE("Requestor 2 GET requests") {
+	GetRequest request1("https://www.google.com/");
+	GetRequest request2("https://www.opennet.ru");
 
-TEST_CASE("NetworkRequestor custom pool") {
-	auto pool = coro::thread_pool::make_shared(coro::thread_pool::options{
-		.thread_count = 1
-	});
+	auto requestor = Requestor::make_shared();
 
-	Requestor requestor(2, pool);
+	auto [resp1, resp2](co_await coro::when_all(requestor->perform_request(request1), requestor->perform_request(request2)));
 
-	auto worker = [](Requestor& requestor, std::shared_ptr<coro::thread_pool> pool) -> coro::task<void> {
-		co_await pool->schedule();
-		auto pool_thread_id = std::this_thread::get_id();
-
-		curlpp::Easy easy;
-
-		easy.setOpt(curlpp::options::Url(""));
-
-		REQUIRE_THROWS_AS(co_await requestor.perform_handle(std::move(easy)), NetworkRuntimeError);
-
-		auto after_thread_id = std::this_thread::get_id();
-		REQUIRE(pool_thread_id == after_thread_id);
-	};
-
-	coro::sync_wait(worker(requestor, pool));
+	REQUIRE_NOTHROW(resp1.return_value().get_status_code() == 200);
+	REQUIRE_NOTHROW(resp2.return_value().get_status_code() == 200);
 }
+
+#endif
