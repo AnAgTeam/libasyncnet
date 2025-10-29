@@ -1,6 +1,6 @@
 #pragma once
 #include <asyncnet/NetTypes.hpp>
-#include <asyncnet/AsyncRequestor.hpp>
+#include <asyncnet/RequestPerformer.hpp>
 #include <asyncnet/Request.hpp>
 
 #include <list>
@@ -16,17 +16,19 @@ namespace asyncnet {
 	public:
 
 		/**
-		 * Initialize asyncronous session. By default requestor is @ref AsyncRequestor.
+		 * Initialize asyncronous session. By default requestor is @ref Requestor.
 		 * Shares cookies with all requests created from session.
 		 */
 		AsyncSession();
 
 		/**
 		 * Initialize asyncronous session with user's requestor
-		 * @see Requestor, @see AsyncRequestor
+		 * Doesn't support multithreaded requestors.
+		 * @throw RuntimeError if the requestor is multithreaded
+		 * @see Requestor
 		 * @param requestor Requestor which will perform all the session requests.
 		 */
-		explicit AsyncSession(std::shared_ptr<AsyncRequestor> requestor);
+		explicit AsyncSession(std::shared_ptr<RequestPerformer> requestor);
 		AsyncSession(const AsyncSession& other) = default;
 		AsyncSession(AsyncSession&& other) = default;
 		~AsyncSession() = default;
@@ -62,6 +64,15 @@ namespace asyncnet {
 		}
 
 		/**
+		 * Set the session requestor which will perform all requests.
+		 * Doesn't support multithreaded requestors.
+		 * @note It doesn't cancel all the previous requests and only affects future requests
+		 * @throw RuntimeError if the requestor is multithreaded
+		 * @param requestor The requestor to set
+		 */
+		void set_requestor(std::shared_ptr<RequestPerformer> requestor);
+
+		/**
 		 * Creates request which inherits all options from AsyncSession request
 		 * @tparam T The request to create
 		 * @tparam Args... Parameters, passed to the request's constructor
@@ -73,10 +84,10 @@ namespace asyncnet {
 		}
 
 		/**
-		 * @brief perform request.
+		 * @brief perform request. Calls the bound requestor's perform_request()
 		 * If timedout the @ref NetworkRuntimeError code will be @ref TimeoutErrorCode, if cancelled the code will be @ref CancelledErrorCode.
 		 * Use task @see CancellingTask::request_stop() to cancel the request.
-		 * @see Requestor, @see AsyncRequestor
+		 * @see Requestor
 		 * @param request The request to perform asyncronously
 		 * @return Awaitable task returning @see Response from request
 		 * @throws NetworkRuntimeError If any runtime error
@@ -87,7 +98,9 @@ namespace asyncnet {
 	private:
 		void initialize_session();
 
-		std::shared_ptr<AsyncRequestor> requestor_;
+		void update_is_multithreaded();
+
+		std::shared_ptr<RequestPerformer> requestor_;
 		Request base_request_;
 		std::list<std::string> default_headers_;
 	};

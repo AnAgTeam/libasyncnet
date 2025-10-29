@@ -29,7 +29,7 @@ namespace asyncnet {
 
 		/**
 		 * Cleanup the multi handle.
-		 * @note All the pending tasks will be cancelled and ran syncronously. To cleanup asyncronously use @see cleanup
+		 * @note All the pending tasks will be cancelled and run syncronously. To cleanup asyncronously use @see cleanup
 		 * @throw RuntimeError If has pending handles in the queue
 		 */
 		~CurlMulti() noexcept;
@@ -56,6 +56,7 @@ namespace asyncnet {
 		 * Cancel all pending requests with CURLE_ABORTED_BY_CALLBACK error and clear queue.
 		 */
 		[[nodiscard]] coro::task<void> cleanup();
+
 		/**
 		 * Cancel all pending requests with CURLE_ABORTED_BY_CALLBACK error and clear queue.
 		 */

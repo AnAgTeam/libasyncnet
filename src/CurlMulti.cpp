@@ -65,7 +65,7 @@ namespace asyncnet {
 				auto& handle_awaiter = condition_awaiters_.at(msg->easy_handle);
 				curl_multi_remove_handle(handle_, msg->easy_handle);
 				handle_awaiter.exit_code = msg->data.result;
-				co_await handle_awaiter.cv.notify_all();
+				handle_awaiter.cv.notify_one().resume();
 				// performer is responsible for cleaning up awaiters
 			}
 			msg = curl_multi_info_read(handle_, &msg_count);
@@ -109,9 +109,9 @@ namespace asyncnet {
 		curl_multi_wakeup(handle_);
 
 		co_await context.cv.wait(lock, [&context] { return context.exit_code.has_value(); });
+		// the lock is locked
 
 		CURLcode exit_code = *context.exit_code;
-		lock = co_await mutex_.scoped_lock();
 		condition_awaiters_.erase(handle.getHandle());
 		lock.unlock();
 

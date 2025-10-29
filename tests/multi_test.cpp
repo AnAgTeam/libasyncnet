@@ -2,7 +2,7 @@
 
 #include <asyncnet/Request.hpp>
 #include <asyncnet/CurlMulti.hpp>
-#include <asyncnet/AsyncRequestor.hpp>
+#include <asyncnet/Requestor.hpp>
 #include <coro/when_all.hpp>
 #include <coro/thread_pool.hpp>
 
@@ -35,16 +35,4 @@ CORO_TEST_CASE("CurlMulti 2 GET requests") {
 	REQUIRE(resp2.get_status_code() == 200);
 
 	co_await multi.cleanup();
-}
-
-CORO_TEST_CASE("AsyncRequestor 2 GET requests") {
-	GetRequest request1("https://www.google.com/");
-	GetRequest request2("https://www.opennet.ru");
-
-	auto requestor = AsyncRequestor::make_shared();
-
-	auto [resp1, resp2] = co_await coro::when_all(requestor->perform_request(request1), requestor->perform_request(request2));
-
-	REQUIRE(resp1.return_value().get_status_code() == 200);
-	REQUIRE(resp2.return_value().get_status_code() == 200);
 }

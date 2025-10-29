@@ -1,75 +1,68 @@
 #include <asyncnet/Requestor.hpp>
+#include <asyncnet/NetTypes.hpp>
+#include <asyncnet/Exceptions.hpp>
 
-#include <curlpp/Options.hpp>
-#include <sstream>
+#include <curlpp/cURLpp.hpp>
+#include <coro/sync_wait.hpp>
 
-constexpr int curl_cancel_request = 1;
-constexpr int curl_continue_request = 0;
+#include <iostream>
 
 namespace asyncnet {
-
-	Requestor::Requestor(const unsigned worker_count) :
-		pool_(coro::thread_pool::make_shared(
-			coro::thread_pool::options {
-				.thread_count = worker_count
-			}
-		)),
-		after_pool_(coro::thread_pool::make_shared(
-			coro::thread_pool::options {
-				.thread_count = 1
-			}
-		))
+	Requestor::Requestor(private_constructor) :
+		timeout_ms_(1000),
+		shutting_down_(false)
 	{
 
 	}
 
-	Requestor::Requestor(const unsigned worker_count, std::shared_ptr<coro::thread_pool> executor_pool) :
-		pool_(coro::thread_pool::make_shared(
-			coro::thread_pool::options{
-				.thread_count = worker_count
-			}
-		)),
-		after_pool_(executor_pool)
-	{
-
+	Requestor::~Requestor() {
+		shutdown();
 	}
 
 	CancellingTask<Response> Requestor::perform_handle(curlpp::Easy handle) {
-		co_await pool_->schedule();
-
-		handle.setOpt(
-			curlpp::options::ProgressFunction([stop_token = co_await awaitables::get_stop_token](double, double, double, double) -> int {
-				return stop_token.stop_requested() ? curl_cancel_request : curl_continue_request;
-			})
-		);
-		handle.setOpt(curlpp::options::NoProgress(false));
-
-		std::ostringstream stream;
-		handle.setOpt(curlpp::options::WriteStream(&stream));
-
-		std::exception_ptr exception;
-		try {
-			handle.perform();
+		if (shutting_down_.load(std::memory_order::acquire)) {
+			throw RuntimeError("Cannot perform_handle when AsyncRequestor is shutting down");
 		}
-		catch (...) {
-			exception = std::current_exception();
-		}
-
-		// user can pass custom pool with nullptr
-		if (after_pool_) {
-			co_await after_pool_->schedule();
-		}
-
-		if (!exception) {
-			co_return Response(std::move(handle), std::move(stream));
-		}
-
-		// handle throwed exception
-		std::rethrow_exception(exception);
+		co_return co_await CurlMulti::perform_handle(std::move(handle)).update_stop_source(co_await awaitables::get_stop_source);
 	}
 
 	CancellingTask<Response> Requestor::perform_request(const Request& request) {
 		return perform_handle(request.make_request_handle());
 	}
 
-};
+	void Requestor::shutdown() {
+		if (shutting_down_.exchange(true, std::memory_order::acq_rel) == false) {
+			if (std::this_thread::get_id() != yield_thread_.get_id()) {
+				wakeup_polling();
+				yield_thread_.join();
+			}
+			else {
+				// detach thread, because trying to shutdown within 'yield_thread_'
+				yield_thread_.detach();
+			}
+		}
+	}
+
+	bool Requestor::is_multithreaded() {
+		return false;
+	}
+
+	std::shared_ptr<Requestor> Requestor::make_shared() {
+		auto ptr = std::make_shared<Requestor>(private_constructor{});
+		ptr->yield_thread_ = std::thread([ptr = ptr.get()] { coro::sync_wait(ptr->yield_executor()); });
+		return ptr;
+	}
+
+	coro::task<void> Requestor::yield_executor() {
+		auto p = shared_from_this();
+		while (!shutting_down_.load(std::memory_order_acquire)) {
+			if (p.use_count() == 1) {
+				// there is only executor referencing the object, so shutdown
+				// TODO: use coroutine features to shutdown
+				shutdown();
+			}
+			co_await yield(timeout_ms_);
+		}
+		co_await cleanup();
+	}
+}
