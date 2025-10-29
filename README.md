@@ -7,7 +7,7 @@ Create basic request
 
 coro::task<void> amain() {
   // make request with the url
-  asyncnet::Request request("http://example.com");
+  asyncnet::GetRequest request("http://example.com");
 
   // Set URL parameters which will be concatenated with request's url
   request.set_url_parameters({
@@ -28,12 +28,12 @@ Perform 2 asyncronous requests
 #include <coro/when_all.hpp>
 
 coro::task<void> amain() {
-  asyncnet::Request request1("http://example.com");
-  asyncnet::Request request2("http://example.com");
-
   // AsyncSession automatically enables cookie engine and cookie sharing across all the requests
   // The session creates background thread which will perform requests
-  AsyncSession session;
+  asyncnet::AsyncSession session;
+
+  asyncnet::GetRequest request1 = session.make_request<asyncnet::GetRequest>("http://example.com");
+  asyncnet::GetRequest request2 = session.make_request<asyncnet::GetRequest>("http://example.com");
 
   // Await all the requests asyncronously
   auto [request1_task, request2_task] = co_await coro::when_all(
