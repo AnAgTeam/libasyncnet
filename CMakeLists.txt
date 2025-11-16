@@ -2,9 +2,9 @@
 
 # ---- PREPARE
 
-option(ASYNCNET_BUILD_TESTS "build tests" OFF)
+option(ASYNCNET_BUILD_TESTS "build tests, Default=OFF" OFF)
 option(ASYNCNET_BUILD_TESTS_NETWORK "build tests with network request. Works only with ASYNCNET_BUILD_TESTS, Default=ON" ON)
-option(ASYNCNET_BUILD_EXAMPLES "build examples" OFF)
+option(ASYNCNET_BUILD_EXAMPLES "build examples, Default=OFF" OFF)
 
 # without this vcpkg won't try to install dependencies
 if (CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg.cmake")
@@ -20,9 +20,6 @@ endif()
 
 project(asyncnet VERSION 2.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CXX_STANDARD_REQUIRED ON)
-
 # ---- FIND DEPENDENCIES
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
@@ -37,15 +34,12 @@ file(GLOB_RECURSE ASYNCNET_SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp")
 
 add_library(asyncnet STATIC ${ASYNCNET_HEADER_FILES} ${ASYNCNET_SOURCE_FILES})
 
+set_property(TARGET asyncnet PROPERTY CXX_STANDARD 20)
+set_property(TARGET asyncnet PROPERTY CXX_STANDARD_REQUIRED ON)
+
 target_include_directories(asyncnet PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
 	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-)
-
-target_include_directories(asyncnet PUBLIC
-	$<BUILD_INTERFACE:${Boost_INCLUDE_DIRS}>
-	$<BUILD_INTERFACE:${CURLPP_INCLUDE_DIRS}>
-	$<BUILD_INTERFACE:${LIBCORO_INCLUDE_DIRS}>
 )
 
 target_link_libraries(asyncnet PUBLIC

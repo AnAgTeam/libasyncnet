@@ -8,6 +8,7 @@
 #include <stop_token>
 #include <optional>
 #include <sstream>
+#include <chrono>
 
 namespace asyncnet {
 
