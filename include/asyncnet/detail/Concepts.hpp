@@ -1,6 +1,7 @@
 #pragma once
 #include <concepts>
 #include <memory>
+#include <string>
 #include <string_view>
 
 namespace asyncnet::detail {

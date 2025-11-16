@@ -17,7 +17,9 @@ namespace asyncnet {
 		set_url(std::move(url));
 	}
 
-	Request::Request(const Request& other) {
+	Request::Request(const Request& other) :
+		share_(other.share_)
+	{
 		options_.reserve(other.options_.size());
 		for (auto& item : other.options_) {
 			options_.emplace_back(item->clone());
