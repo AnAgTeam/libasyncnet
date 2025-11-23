@@ -58,7 +58,7 @@ namespace asyncnet {
 		requestor_ = std::move(requestor);
 	}
 
-	CancellingTask<Response> AsyncSession::perform_request(const Request& request) {
+	NetworkTask<Response> AsyncSession::perform_request(const Request& request) {
 		return requestor_->perform_request(request);
 	}
 

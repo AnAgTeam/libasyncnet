@@ -19,14 +19,14 @@ namespace asyncnet {
 		shutdown();
 	}
 
-	CancellingTask<Response> Requestor::perform_handle(curlpp::Easy handle) {
+	NetworkTask<Response> Requestor::perform_handle(curlpp::Easy handle) {
 		if (shutting_down_.load(std::memory_order::acquire)) {
 			throw RuntimeError("Cannot perform_handle when AsyncRequestor is shutting down");
 		}
-		co_return co_await CurlMulti::perform_handle(std::move(handle)).update_stop_source(co_await awaitables::get_stop_source);
+		co_return co_await CurlMulti::perform_handle(std::move(handle));
 	}
 
-	CancellingTask<Response> Requestor::perform_request(const Request& request) {
+	NetworkTask<Response> Requestor::perform_request(const Request& request) {
 		return perform_handle(request.make_request_handle());
 	}
 
