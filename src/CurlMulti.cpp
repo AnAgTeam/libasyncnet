@@ -89,12 +89,15 @@ namespace asyncnet {
 		assert(condition_awaiters_.empty());
 	}
 
-	CancellingTask<Response> CurlMulti::perform_handle(curlpp::Easy handle) {
+	NetworkTask<Response> CurlMulti::perform_handle(curlpp::Easy handle) {
 		// Set progress function to control stop state
+		auto progress_function = [&promise = co_await awaitables::get_self](double dl_total, double dl_now, double ul_total, double ul_now) -> int {
+			promise.set_total_bytes(dl_total);
+			promise.set_read_bytes(dl_now);
+			return promise.stop_requested() ? curl_cancel_request : curl_continue_request;
+		};
 		handle.setOpt(
-			curlpp::options::ProgressFunction([stop_token = co_await awaitables::get_stop_token](double, double, double, double) -> int {
-				return stop_token.stop_requested() ? curl_cancel_request : curl_continue_request;
-			})
+			curlpp::options::ProgressFunction(std::move(progress_function))
 		);
 		handle.setOpt(curlpp::options::NoProgress(false));
 

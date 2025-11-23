@@ -86,14 +86,14 @@ namespace asyncnet {
 		/**
 		 * @brief perform request. Calls the bound requestor's perform_request()
 		 * If timedout the @ref NetworkRuntimeError code will be @ref TimeoutErrorCode, if cancelled the code will be @ref CancelledErrorCode.
-		 * Use task @see CancellingTask::request_stop() to cancel the request.
+		 * Use task @see NetworkTask::request_stop() to cancel the request.
 		 * @see Requestor
 		 * @param request The request to perform asyncronously
 		 * @return Awaitable task returning @see Response from request
 		 * @throws NetworkRuntimeError If any runtime error
 		 * @throws NetworkLogicError If any logic error
 		 */
-		[[nodiscard]] CancellingTask<Response> perform_request(const Request& request);
+		[[nodiscard]] NetworkTask<Response> perform_request(const Request& request);
 
 	private:
 		void initialize_session();

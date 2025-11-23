@@ -74,7 +74,7 @@ namespace asyncnet {
 		 * @throws NetworkRuntimeError If any runtime error
 		 * @throws NetworkLogicError If any logic error
 		 */
-		[[nodiscard]] CancellingTask<Response> perform_handle(curlpp::Easy handle);
+		[[nodiscard]] NetworkTask<Response> perform_handle(curlpp::Easy handle);
 
 		/**
 		 * Get libcurl multi interface handle
