@@ -2,10 +2,10 @@
 <b>asyncnet</b> is an asyncronous http client library. Written upon libcurl ([curlpp](https://github.com/jpbarrette/curlpp)) and [libcoro](https://github.com/jbaldwin/libcoro)
 
 ## Overview
-- [Create basic request](#Create basic request)
-- [Create API methods](#Create API methods)
-- [Make simultaneous requests](#Make simultaneous requests)
-- [Custom task with cancel support](#Create custom task with cancel support)
+- [Create basic request](#create-basic-request)
+- [Create API methods](#create-api-methods)
+- [Make simultaneous requests](#make-simultaneous-requests)
+- [Custom task with cancel support](#create-custom-task-with-cancel-support)
 
 ## Usage
 ### Create basic request
