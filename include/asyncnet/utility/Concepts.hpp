@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-namespace asyncnet::detail {
+namespace asyncnet::concepts {
 	template<typename T, typename ... U>
 	concept same_as_any_of = (std::same_as<T, U> || ...);
 
@@ -18,4 +18,9 @@ namespace asyncnet::detail {
 
 	template<typename T>
 	concept stringlike = same_as_any_of<T, std::string, std::string_view>;
+
+	template<typename Derived, template<typename ...> typename Base>
+	concept derived_from_template = requires(Derived d) {
+		[] <typename ... Args> (const Base<Args ...>&) {}(d);
+	};
 };

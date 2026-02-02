@@ -1,3 +1,4 @@
+#ifdef ASYNCNET_ENABLE_TESTS_NETWORK
 #include "CoroTest.hpp"
 
 #include <asyncnet/Request.hpp>
@@ -36,3 +37,4 @@ CORO_TEST_CASE("CurlMulti 2 GET requests") {
 
 	co_await multi.cleanup();
 }
+#endif

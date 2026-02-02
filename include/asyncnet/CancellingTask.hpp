@@ -1,4 +1,5 @@
 #pragma once
+#include <asyncnet/utility/Concepts.hpp>
 #include <stdexcept>
 #include <coroutine>
 #include <variant>
@@ -14,11 +15,13 @@ namespace asyncnet {
 	template<typename T>
 	class Promise;
 
-	template<typename T,typename TaskPromise = Promise<T>>
-		requires requires { std::derived_from<TaskPromise, Promise<T>>; }
+	template<typename T>
+	class NetworkPromise;
+
+	template<typename T, std::derived_from<Promise<T>> TaskPromise = Promise<T>>
 	class CancellingTask;
 
-	template<typename T>
+	template<typename T, std::derived_from<NetworkPromise<T>> TaskPromise = NetworkPromise<T>>
 	class NetworkTask;
 
 	namespace detail {
@@ -331,8 +334,6 @@ namespace asyncnet {
 		template<typename U>
 		void connect_with(NetworkPromise<U>& other_promise) {
 			this->set_stop_source(other_promise.stop_source());
-			//other_promise.read_bytes_count_= std::addressof(read_bytes());
-			//other_promise.total_bytes_count_ = std::addressof(total_bytes());
 
 			read_bytes_count_ = std::addressof(other_promise.read_bytes());
 			total_bytes_count_ = std::addressof(other_promise.total_bytes());
@@ -367,8 +368,10 @@ namespace asyncnet {
 		static constexpr detail::GetPromiseTag get_self = get_promise;
 	}
 
-	template<typename T, typename TaskPromise>
-		requires requires { std::derived_from<TaskPromise, Promise<T>>; }
+	/**
+	 * @brief Lazy coroutine with feature to request stop from task
+	 */
+	template<typename T, std::derived_from<Promise<T>> TaskPromise>
 	class CancellingTask {
 	public:
 		using promise_type = TaskPromise;
@@ -467,15 +470,15 @@ namespace asyncnet {
 		 * @return The stop_source with copy of stop-state of the task
 		 */
 		std::stop_source get_stop_source() {
-			return coroutine_.promise().get_stop_source();
+			return coroutine_.promise().stop_source();
 		}
 
 		/**
 		 * Set this coroutine @ref std::stop_source to provided.
 		 * Used to connect stop_source of two CancellingTask objects
-		 * @return Reference of this CancellingTask
+		 * @return Reference to this CancellingTask
 		 */
-		CancellingTask& update_stop_source(std::stop_source stop_source)& {
+		CancellingTask& update_stop_source(std::stop_source stop_source) & {
 			coroutine_.promise().set_stop_source(std::move(stop_source));
 			return *this;
 		}
@@ -483,9 +486,9 @@ namespace asyncnet {
 		/**
 		 * Set this coroutine @ref std::stop_source to provided.
 		 * Used to connect stop_source of two CancellingTask objects
-		 * @return Reference of this CancellingTask
+		 * @return Reference to this CancellingTask
 		 */
-		CancellingTask&& update_stop_source(std::stop_source stop_source)&& {
+		CancellingTask&& update_stop_source(std::stop_source stop_source) && {
 			coroutine_.promise().set_stop_source(std::move(stop_source));
 			return std::move(*this);
 		}
@@ -504,14 +507,18 @@ namespace asyncnet {
 	};
 
 	/**
-	 * @todo
-	 * @note It will automatically connect tasks when you co_await NetworkTask inside another NetworkTask
+	 * @brief Coroutine task associated with network transfers
+	 * It will automatically connect task states when
+	 * co_await NetworkTask (or derived from NetworkTask)
+	 * inside another NetworkTask (or derived from NetworkTask)
+	 * @note It cannot connect outside NetworkTask context.
+	 *       You must manually call @see connect_with(...).
 	 */
-	template<typename T>
-	class NetworkTask : public CancellingTask<T, NetworkPromise<T>> {
+	template<typename T, std::derived_from<NetworkPromise<T>> TaskPromise>
+	class NetworkTask : public CancellingTask<T, TaskPromise> {
 	public:
 
-		using promise_type = NetworkPromise<T>;
+		using CancellingTask<T, TaskPromise>::promise_type;
 		using coroutine_handle = std::coroutine_handle<promise_type>;
 
 		struct Awaitable {
@@ -521,8 +528,8 @@ namespace asyncnet {
 				return !coroutine_ || coroutine_.done();
 			}
 
-			template<typename U>
-			std::coroutine_handle<> await_suspend(std::coroutine_handle<NetworkPromise<U>> coroutine) noexcept {
+			template<concepts::derived_from_template<NetworkPromise> U>
+			std::coroutine_handle<> await_suspend(std::coroutine_handle<U> coroutine) noexcept {
 				coroutine_.promise().connect_with(coroutine.promise());
 				coroutine_.promise().continuation(coroutine);
 				return coroutine_;
@@ -578,13 +585,13 @@ namespace asyncnet {
 
 		/**
 		 * Connect two NetworkPromise.
-		 * Then, if passed coroutine requests stop, sets information, it will be setted for this coroutine.
+		 * Then, if passed coroutine requests stop, sets information, it will be setted for this coroutine too.
 		 * Used when you need to wrap NetworkTask object inside another coroutine, but want to use stop and info.
 		 * @param other_promise The promise to get connected to
 		 * @return Reference to this NetworkTask
 		 */
-		template<typename U>
-		NetworkTask& connect_with(NetworkPromise<U>& other_promise) & {
+		template<concepts::derived_from_template<NetworkPromise> U>
+		NetworkTask& connect_with(U& other_promise) & {
 			this->promise().connect_with(other_promise);
 			return *this;
 		}
@@ -596,8 +603,8 @@ namespace asyncnet {
 		 * @param other_promise The promise to get connected to
 		 * @return R-value reference to this NetworkTask
 		 */
-		template<typename U>
-		NetworkTask&& connect_with(NetworkPromise<U>& other_promise) && {
+		template<concepts::derived_from_template<NetworkPromise> U>
+		NetworkTask&& connect_with(U& other_promise) && {
 			this->promise().connect_with(other_promise);
 			return std::move(*this);
 		}

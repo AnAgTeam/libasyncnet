@@ -1,5 +1,5 @@
 #pragma once
-#include <asyncnet/detail/Concepts.hpp>
+#include <asyncnet/utility/Concepts.hpp>
 #include <asyncnet/NetTypes.hpp>
 #include <asyncnet/CurlShared.hpp>
 
