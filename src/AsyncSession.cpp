@@ -1,5 +1,5 @@
 #include <asyncnet/AsyncSession.hpp>
-#include <asyncnet/detail/Format.hpp>
+#include <asyncnet/utility/Format.hpp>
 #include <asyncnet/Requestor.hpp>
 #include <asyncnet/Exceptions.hpp>
 
