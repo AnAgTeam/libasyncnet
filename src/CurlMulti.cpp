@@ -82,7 +82,6 @@ namespace asyncnet {
 		coro::scoped_lock lock = co_await mutex_.scoped_lock();
 		for (auto& [handle, awaiter_context] : condition_awaiters_) {
 			curl_multi_remove_handle(handle_, handle);
-			// TODO: add cancel
 			awaiter_context.exit_code = CURLE_ABORTED_BY_CALLBACK;
 			co_await awaiter_context.cv.notify_one();
 		}
