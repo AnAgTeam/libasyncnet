@@ -233,3 +233,22 @@ TEST_CASE("gather connect and stop from outside") {
 	});
 	coro::sync_wait(gather_connect_and_stop_from_outside_impl(thread_pool.get()));
 }
+
+CORO_TEST_CASE("NetworkTask reports byte counters set on its promise") {
+	auto make_counting_task = []() -> NetworkTask<void> {
+		auto& self = co_await awaitables::get_self;
+		self.set_total_bytes(1000);
+		self.set_read_bytes(250);
+	};
+
+	auto task = make_counting_task();
+
+	// Not started yet: the counters read their default 0 (see NetworkTask::read_bytes).
+	REQUIRE(task.read_bytes() == 0);
+	REQUIRE(task.total_bytes() == 0);
+
+	co_await task;
+
+	CHECK(task.read_bytes() == 250);
+	CHECK(task.total_bytes() == 1000);
+}
