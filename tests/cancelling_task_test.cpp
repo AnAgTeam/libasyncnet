@@ -177,7 +177,12 @@ DerivedTask<bool, int> make_task_inner(std::shared_ptr<CancelTaskContext> ctx, i
 	co_return (co_await awaitables::get_stop_token).stop_requested();
 };
 
-CORO_TEST_CASE("gather connect and stop from outside") {
+// The thread pool must be owned by the synchronous test scope, not by the
+// coroutine below: after `co_await tasks_exited` the coroutine resumes inline on
+// a pool worker thread, so destroying the pool from within the coroutine would
+// make the pool join its own worker thread (self-join deadlock). Owning it here
+// and passing a raw pointer keeps its destruction on the main thread.
+static coro::task<void> gather_connect_and_stop_from_outside_impl(coro::thread_pool* thread_pool) {
 	auto make_autocancel_task = [](std::shared_ptr<CancelTaskContext> ctx, std::optional<bool>& is_cancelled) -> DerivedTask<void, int> {
 		auto [task1, task2] = co_await gather(
 			co_await awaitables::get_stop_source,
@@ -192,15 +197,11 @@ CORO_TEST_CASE("gather connect and stop from outside") {
 		co_await *await_task;
 	};
 
-	auto thread_pool = coro::thread_pool::make_shared(coro::thread_pool::options{
-		.thread_count = 1
-	});
-
 	{
 		auto tasks_context = std::make_shared<CancelTaskContext>();
 		std::optional<bool> is_nocancel_cancelled;
 		auto no_cancel_task = std::make_shared<DerivedTask<void, int>>(make_autocancel_task(tasks_context, is_nocancel_cancelled));
-		thread_pool->spawn(make_autocancel_helper(no_cancel_task));
+		thread_pool->spawn_detached(make_autocancel_helper(no_cancel_task));
 
 		co_await tasks_context->tasks_ready;
 		tasks_context->tasks_should_check_cancel.set();
@@ -214,7 +215,7 @@ CORO_TEST_CASE("gather connect and stop from outside") {
 		auto tasks_context = std::make_shared<CancelTaskContext>();
 		std::optional<bool> is_cancelled;
 		auto cancel_task = std::make_shared<DerivedTask<void, int>>(make_autocancel_task(tasks_context, is_cancelled));
-		thread_pool->spawn(make_autocancel_helper(cancel_task));
+		thread_pool->spawn_detached(make_autocancel_helper(cancel_task));
 
 		co_await tasks_context->tasks_ready;
 		cancel_task->request_stop();
@@ -224,4 +225,11 @@ CORO_TEST_CASE("gather connect and stop from outside") {
 		CHECK(is_cancelled.has_value());
 		REQUIRE(*is_cancelled);
 	}
+}
+
+TEST_CASE("gather connect and stop from outside") {
+	auto thread_pool = coro::thread_pool::make_unique({
+		.thread_count = 1
+	});
+	coro::sync_wait(gather_connect_and_stop_from_outside_impl(thread_pool.get()));
 }

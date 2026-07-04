@@ -89,21 +89,33 @@ namespace asyncnet {
 		assert(condition_awaiters_.empty());
 	}
 
-	NetworkTask<Response> CurlMulti::perform_handle(curlpp::Easy handle) {
-		// Set progress function to control stop state
-		auto progress_function = [&promise = co_await awaitables::get_self](double dl_total, double dl_now, double ul_total, double ul_now) -> int {
-			promise.set_total_bytes(dl_total);
-			promise.set_read_bytes(dl_now);
-			return promise.stop_requested() ? curl_cancel_request : curl_continue_request;
-		};
-		handle.setOpt(
-			curlpp::options::ProgressFunction(std::move(progress_function))
-		);
+	// Report transfer progress and honour stop requests. Uses the modern
+	// xferinfo callback (curl_off_t, exact 64-bit byte counts) rather than the
+	// deprecated double-based progress function. curlpp only wraps the latter,
+	// so it is set directly on the easy handle; clientp is the request's promise.
+	static int xferinfo_callback(void* clientp, curl_off_t dl_total, curl_off_t dl_now,
+		curl_off_t /*ul_total*/, curl_off_t /*ul_now*/) {
+		auto& promise = *static_cast<NetworkPromise<Response>*>(clientp);
+		promise.set_total_bytes(static_cast<long long>(dl_total));
+		promise.set_read_bytes(static_cast<long long>(dl_now));
+		return promise.stop_requested() ? curl_cancel_request : curl_continue_request;
+	}
+
+	NetworkTask<Response> CurlMulti::perform_handle(curlpp::Easy handle, std::ostream* output_stream) {
+		NetworkPromise<Response>& promise = co_await awaitables::get_self;
+		curl_easy_setopt(handle.getHandle(), CURLOPT_XFERINFOFUNCTION, &xferinfo_callback);
+		curl_easy_setopt(handle.getHandle(), CURLOPT_XFERINFODATA, &promise);
 		handle.setOpt(curlpp::options::NoProgress(false));
 
-		// set response output stream
-		std::ostringstream stream;
-		handle.setOpt(curlpp::options::WriteStream(&stream));
+		// Route the body either into the caller's sink (streamed, not buffered) or,
+		// when none is given, into an internal buffer owned by this coroutine frame.
+		std::optional<std::ostringstream> owned_stream;
+		std::ostream* sink = output_stream;
+		if (!sink) {
+			owned_stream.emplace();
+			sink = &owned_stream.value();
+		}
+		handle.setOpt(curlpp::options::WriteStream(sink));
 
 		coro::scoped_lock lock = co_await mutex_.scoped_lock();
 
@@ -119,7 +131,11 @@ namespace asyncnet {
 		lock.unlock();
 
 		curlpp::libcurlRuntimeAssert("Multi network request failed", exit_code);
-		co_return Response(std::move(handle), std::move(stream));
+
+		if (owned_stream) {
+			co_return Response(std::move(handle), std::move(owned_stream.value()));
+		}
+		co_return Response(std::move(handle));
 	}
 
 	CURLM* CurlMulti::get_handle() const noexcept {

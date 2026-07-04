@@ -67,6 +67,30 @@ TEST_CASE("Request options set") {
 	}
 }
 
+TEST_CASE("Request output stream sink") {
+	std::ostringstream sink;
+
+	Request request("http://example.com");
+	REQUIRE(request.get_output_stream() == nullptr);
+
+	request.set_output_stream(&sink);
+	REQUIRE(request.get_output_stream() == &sink);
+
+	// copy carries the sink
+	Request copy = request;
+	REQUIRE(copy.get_output_stream() == &sink);
+
+	// inherit_from carries the sink from the source request
+	Request inheritor("http://other.com");
+	REQUIRE(inheritor.get_output_stream() == nullptr);
+	inheritor.inherit_from(request);
+	REQUIRE(inheritor.get_output_stream() == &sink);
+
+	// clearing restores internal buffering
+	request.set_output_stream(nullptr);
+	REQUIRE(request.get_output_stream() == nullptr);
+}
+
 template<typename Option>
 concept RequestHasSetter = requires (Request request) { request.set_option<Option>(std::declval<typename Option::OptionType>()); };
 

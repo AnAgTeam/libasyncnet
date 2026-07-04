@@ -54,7 +54,11 @@ namespace asyncnet {
 		curlpp::Easy make_request_handle() const;
 
 		/**
-		 * @todo
+		 * Inherit all options and the share context from another request, keeping
+		 * this request's own URL. Existing options on this request are replaced by
+		 * the inherited ones; the URL set on this request (if any) is preserved.
+		 * @param other The request to inherit options from
+		 * @return Reference to this Request
 		 */
 		Request& inherit_from(const Request& other);
 
@@ -134,6 +138,24 @@ namespace asyncnet {
 		const std::shared_ptr<CurlShared>& get_share() const noexcept;
 
 		/**
+		 * Stream the response body into a caller-owned stream instead of buffering
+		 * it internally. Enables downloading large bodies straight to a file (or any
+		 * @ref std::ostream) as the data arrives, without holding the whole body in memory.
+		 * @note The stream must stay alive until the request's task completes.
+		 *       When a sink is set, @ref Response::get_text() returns an empty string,
+		 *       because the body was written to the sink rather than buffered.
+		 *       By default no sink is set and the body is buffered internally.
+		 * @param stream The output stream to receive the body, or nullptr to buffer internally
+		 */
+		void set_output_stream(std::ostream* stream) noexcept;
+
+		/**
+		 * Get the caller-owned output stream the response body will be written to.
+		 * @return The output stream, or nullptr if the body is buffered internally (the default)
+		 */
+		[[nodiscard]] std::ostream* get_output_stream() const noexcept;
+
+		/**
 		 * Set Request any curl option, except url. To set url please use @ref set_url(url) and @ref set_url_parameters(params).
 		 * If Request has already contains this option, it would set containing value. Otherwise it creates new option
 		 * @tparam Option Option type to be setted
@@ -189,6 +211,7 @@ namespace asyncnet {
 		std::vector<std::unique_ptr<curlpp::OptionBase>> options_;
 		std::string base_url_;
 		std::shared_ptr<CurlShared> share_;
+		std::ostream* output_stream_ = nullptr;
 	};
 
 	class PostRequest : public Request {

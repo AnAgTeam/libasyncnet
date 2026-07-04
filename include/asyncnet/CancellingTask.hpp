@@ -283,49 +283,49 @@ namespace asyncnet {
 
 		using Promise<T>::await_transform;
 
-		const long& read_bytes() const {
-			if (std::holds_alternative<long>(read_bytes_count_)) {
-				return std::get<long>(read_bytes_count_);
+		const long long& read_bytes() const {
+			if (std::holds_alternative<long long>(read_bytes_count_)) {
+				return std::get<long long>(read_bytes_count_);
 			}
-			return *std::get<long*>(read_bytes_count_);
+			return *std::get<long long*>(read_bytes_count_);
 		}
 
-		const long& total_bytes() const {
-			if (std::holds_alternative<long>(total_bytes_count_)) {
-				return std::get<long>(total_bytes_count_);
+		const long long& total_bytes() const {
+			if (std::holds_alternative<long long>(total_bytes_count_)) {
+				return std::get<long long>(total_bytes_count_);
 			}
-			return *std::get<long*>(total_bytes_count_);
+			return *std::get<long long*>(total_bytes_count_);
 		}
 
-		long& read_bytes() {
-			if (std::holds_alternative<long>(read_bytes_count_)) {
-				return std::get<long>(read_bytes_count_);
+		long long& read_bytes() {
+			if (std::holds_alternative<long long>(read_bytes_count_)) {
+				return std::get<long long>(read_bytes_count_);
 			}
-			return *std::get<long*>(read_bytes_count_);
+			return *std::get<long long*>(read_bytes_count_);
 		}
 
-		long& total_bytes() {
-			if (std::holds_alternative<long>(total_bytes_count_)) {
-				return std::get<long>(total_bytes_count_);
+		long long& total_bytes() {
+			if (std::holds_alternative<long long>(total_bytes_count_)) {
+				return std::get<long long>(total_bytes_count_);
 			}
-			return *std::get<long*>(total_bytes_count_);
+			return *std::get<long long*>(total_bytes_count_);
 		}
 
-		void set_read_bytes(long new_read_bytes) {
-			if (std::holds_alternative<long>(read_bytes_count_)) {
-				std::get<long>(read_bytes_count_) = new_read_bytes;
+		void set_read_bytes(long long new_read_bytes) {
+			if (std::holds_alternative<long long>(read_bytes_count_)) {
+				std::get<long long>(read_bytes_count_) = new_read_bytes;
 			}
 			else {
-				*std::get<long*>(read_bytes_count_) = new_read_bytes;
+				*std::get<long long*>(read_bytes_count_) = new_read_bytes;
 			}
 		}
 
-		void set_total_bytes(long new_total_bytes) {
-			if (std::holds_alternative<long>(total_bytes_count_)) {
-				std::get<long>(total_bytes_count_) = new_total_bytes;
+		void set_total_bytes(long long new_total_bytes) {
+			if (std::holds_alternative<long long>(total_bytes_count_)) {
+				std::get<long long>(total_bytes_count_) = new_total_bytes;
 			}
 			else {
-				*std::get<long*>(total_bytes_count_) = new_total_bytes;
+				*std::get<long long*>(total_bytes_count_) = new_total_bytes;
 			}
 		}
 
@@ -341,8 +341,8 @@ namespace asyncnet {
 
 	private:
 
-		std::variant<long, long*> read_bytes_count_;
-		std::variant<long, long*> total_bytes_count_;
+		std::variant<long long, long long*> read_bytes_count_;
+		std::variant<long long, long long*> total_bytes_count_;
 	};
 
 	namespace awaitables {
@@ -372,7 +372,7 @@ namespace asyncnet {
 	 * @brief Lazy coroutine with feature to request stop from task
 	 */
 	template<typename T, std::derived_from<Promise<T>> TaskPromise>
-	class CancellingTask {
+	class [[nodiscard]] CancellingTask {
 	public:
 		using promise_type = TaskPromise;
 		using coroutine_handle = std::coroutine_handle<promise_type>;
@@ -515,7 +515,7 @@ namespace asyncnet {
 	 *       You must manually call @see connect_with(...).
 	 */
 	template<typename T, std::derived_from<NetworkPromise<T>> TaskPromise>
-	class NetworkTask : public CancellingTask<T, TaskPromise> {
+	class [[nodiscard]] NetworkTask : public CancellingTask<T, TaskPromise> {
 	public:
 
 		using CancellingTask<T, TaskPromise>::promise_type;
@@ -612,7 +612,7 @@ namespace asyncnet {
 		/**
 		 * @return Already read bytes by the network request. Returns 0 if isn't started.
 		 */
-		long read_bytes() const {
+		long long read_bytes() const {
 			return this->promise().read_bytes();
 		}
 
@@ -620,7 +620,7 @@ namespace asyncnet {
 		 * @note The value can always be 0 if the server isn't providing the 'Content-Length' field.
 		 * @return Total bytes to read by the network request.
 		 */
-		long total_bytes() const {
+		long long total_bytes() const {
 			return this->promise().total_bytes();
 		}
 	};

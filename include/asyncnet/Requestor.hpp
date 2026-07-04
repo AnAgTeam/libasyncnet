@@ -37,12 +37,12 @@ namespace asyncnet {
 		 * @throws NetworkLogicError If any logic error
 		 * @throws RuntimeError If trying to perform handle while requestor was shut down
 		 */
-		virtual [[nodiscard]] NetworkTask<Response> perform_handle(curlpp::Easy handle) override;
+		virtual NetworkTask<Response> perform_handle(curlpp::Easy handle) override;
 
 		/** 
 		 * 
 		 */
-		virtual [[nodiscard]] NetworkTask<Response> perform_request(const Request& request) override;
+		virtual NetworkTask<Response> perform_request(const Request& request) override;
 
 		virtual bool is_multithreaded() override;
 

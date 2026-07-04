@@ -50,17 +50,17 @@ namespace asyncnet {
 		 * @param timeout_ms Timeout of pull in milliseconds
 		 * @return Currently active requests in the queue
 		 */
-		[[nodiscard]] coro::task<int> yield(int timeout_ms);
+		coro::task<int> yield(int timeout_ms);
 
 		/**
 		 * Cancel all pending requests with CURLE_ABORTED_BY_CALLBACK error and clear queue.
 		 */
-		[[nodiscard]] coro::task<void> cleanup();
+		coro::task<void> cleanup();
 
 		/**
 		 * Cancel all pending requests with CURLE_ABORTED_BY_CALLBACK error and clear queue.
 		 */
-		[[nodiscard]] coro::task<void> abort_all();
+		coro::task<void> abort_all();
 
 		/**
 		 * @brief perform curl easy handle.
@@ -68,13 +68,18 @@ namespace asyncnet {
 		 * All the requests are executed in @see yield().
 		 * If timedout the @ref NetworkRuntimeError code will be @ref TimeoutErrorCode, if cancelled the code will be @ref CancelledErrorCode.
 		 * Use task @see CancellingTask::request_stop() to cancel the request.
-		 * @note It sets @ref WriteStream option to it's own buffer, ignoring user buffer. It sets @ref ProgressFunction and @ref NoProgress options, ignoring user's
+		 * @note If @p output_stream is nullptr it sets @ref WriteStream option to its own buffer,
+		 *		ignoring user buffer, and the body is available via @ref Response::get_text().
+		 *		Otherwise the body is streamed into @p output_stream (which must outlive the task)
+		 *		and @ref Response::get_text() returns empty. It sets @ref ProgressFunction and
+		 *		@ref NoProgress options, ignoring user's
 		 * @param handle The handle to execute asyncronously
+		 * @param output_stream Optional caller-owned stream to receive the body, or nullptr to buffer internally
 		 * @return Awaitable task returning @see Response from request
 		 * @throws NetworkRuntimeError If any runtime error
 		 * @throws NetworkLogicError If any logic error
 		 */
-		[[nodiscard]] NetworkTask<Response> perform_handle(curlpp::Easy handle);
+		NetworkTask<Response> perform_handle(curlpp::Easy handle, std::ostream* output_stream = nullptr);
 
 		/**
 		 * Get libcurl multi interface handle
