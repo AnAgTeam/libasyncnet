@@ -8,7 +8,7 @@
 
 namespace asyncnet {
 
-	class Requestor : CurlMulti, public RequestPerformer, public std::enable_shared_from_this<Requestor> {
+	class Requestor : CurlMulti, public RequestPerformer {
 		struct private_constructor { explicit private_constructor() = default; };
 
 	public:
@@ -61,8 +61,10 @@ namespace asyncnet {
 
 		/**
 		 * Requestor's thread body function
+		 * @param shared_this Shared ownership of this Requestor, kept alive for the
+		 *        executor's lifetime; when it becomes the sole owner the executor shuts down
 		 */
-		coro::task<void> yield_executor();
+		coro::task<void> yield_executor(std::shared_ptr<Requestor> shared_this);
 
 		int timeout_ms_;
 		std::atomic_bool shutting_down_;
