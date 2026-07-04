@@ -1,9 +1,7 @@
 #pragma once
 #include <curlpp/Form.hpp>
 
-#include <cstdint>
 #include <string>
-#include <vector>
 
 namespace asyncnet {
 	/**
@@ -21,7 +19,7 @@ namespace asyncnet {
 		*/
 		FileBufferPart(
 			std::string name,
-			std::vector<uint8_t> content,
+			std::string content,
 			std::string filename
 		);
 
@@ -34,7 +32,7 @@ namespace asyncnet {
 		*/
 		FileBufferPart(
 			std::string name,
-			std::vector<uint8_t> content,
+			std::string content,
 			std::string filename,
 			std::string content_type
 		);
@@ -53,7 +51,7 @@ namespace asyncnet {
 			curl_httppost** last
 		) override;
 
-		const std::vector<uint8_t> content_;
+		const std::string content_;
 		const std::string filename_;
 		const std::string content_type_;
 	};

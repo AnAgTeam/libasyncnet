@@ -3,7 +3,7 @@
 namespace asyncnet {
 	FileBufferPart::FileBufferPart(
 		std::string name,
-		std::vector<uint8_t> content,
+		std::string content,
 		std::string filename
 	) :
 		FormPart(std::move(name)),
@@ -15,7 +15,7 @@ namespace asyncnet {
 
 	FileBufferPart::FileBufferPart(
 		std::string name,
-		std::vector<uint8_t> content,
+		std::string content,
 		std::string filename,
 		std::string content_type
 	) :
