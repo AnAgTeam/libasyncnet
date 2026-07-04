@@ -27,7 +27,7 @@ namespace asyncnet {
 
 		/// Tuple with return values from coro::when_all's task
 		template<coro::concepts::awaitable ... Awaitables>
-		using WhenAllAwaitableTuple = std::remove_reference_t<decltype(std::declval<typename coro::concepts::awaitable_traits<WhenAllAwaitable<Awaitables ...>>::awaiter_type>().await_resume())>;
+		using WhenAllAwaitableTuple = std::remove_reference_t<typename coro::concepts::awaitable_traits<WhenAllAwaitable<Awaitables ...>>::awaiter_return_type>;
 
 		/**
 		 * Class that holds coro::when_all tasks alive
@@ -87,12 +87,19 @@ namespace asyncnet {
 		 * @param storage R-Value storage with tasks
 		 * @returns Moved task value from at 'Index'
 		 */
+		// tuple_value binds to when_all_task's m_tasks, which lives inside the
+		// caller-owned GatherTasksStorage (that is its whole purpose), so the
+		// reference returned here outlives get(). MSVC's C4172 is a back-end
+		// warning that misreads the std::move chain as returning a reference to a
+		// local; it is only silenced by a pragma wrapping the whole function.
+#pragma warning(push)
+#pragma warning(disable: 4172)
 		template<size_t Index, typename ... Awaitables>
-		auto get(GatherTasksStorage<Awaitables ...>&& storage) {
-			using ReturnType = std::tuple_element_t<Index, GatherTasksStorage<Awaitables ...>>;
-			auto&& result_value = std::get<Index>(coro::concepts::get_awaiter(std::move(storage.when_all_task)).await_resume()).return_value();
-			return static_cast<ReturnType&&>(result_value);
+		decltype(auto) get(GatherTasksStorage<Awaitables ...>&& storage) {
+			auto&& tuple_value = coro::concepts::get_awaiter(std::move(storage.when_all_task)).await_resume();
+			return std::move(std::get<Index>(std::move(tuple_value)).return_value());
 		}
+#pragma warning(pop)
 	}
 
 	// just to enable user access outside detail. Cannot be moved here because of ADL
