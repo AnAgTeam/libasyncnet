@@ -52,14 +52,18 @@ namespace asyncnet {
 
 	std::shared_ptr<Requestor> Requestor::make_shared() {
 		auto ptr = std::make_shared<Requestor>(private_constructor{});
-		ptr->yield_thread_ = std::thread([ptr = ptr.get()] { coro::sync_wait(ptr->yield_executor()); });
+		ptr->yield_thread_ = std::thread([ptr]() mutable {
+			// Take the raw self pointer before moving ptr into the coroutine frame,
+			// so the call target does not depend on argument evaluation order.
+			Requestor* self = ptr.get();
+			coro::sync_wait(self->yield_executor(std::move(ptr)));
+		});
 		return ptr;
 	}
 
-	coro::task<void> Requestor::yield_executor() {
-		auto p = shared_from_this();
+	coro::task<void> Requestor::yield_executor(std::shared_ptr<Requestor> shared_this) {
 		while (!shutting_down_.load(std::memory_order_acquire)) {
-			if (p.use_count() == 1) {
+			if (shared_this.use_count() == 1) {
 				// there is only executor referencing the object, so shutdown
 				// TODO: use coroutine features to shutdown
 				shutdown();
