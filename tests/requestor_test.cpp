@@ -30,7 +30,7 @@ TEST_CASE("NetworkRequestor request") {
 			auto resp = co_await requestor->perform_handle(std::move(easy));
 			REQUIRE(resp.get_status_code() == 200);
 		} 
-		catch (const NetworkRuntimeError& e) {
+		catch (const NetworkRuntimeError&) {
 			INFO(std::format("Request {} failed! (thread: {})", url, std::this_thread::get_id()));
 
 			std::rethrow_exception(std::current_exception());

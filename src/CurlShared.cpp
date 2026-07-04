@@ -63,7 +63,7 @@ namespace asyncnet {
 	}
 
 	void CurlShared::set_share_option(long type, bool shared) {
-		CURLSHcode code = curl_share_setopt(handle_, shared ? CURLSHOPT_SHARE : CURLSHOPT_UNSHARE, type);
+		[[maybe_unused]] CURLSHcode code = curl_share_setopt(handle_, shared ? CURLSHOPT_SHARE : CURLSHOPT_UNSHARE, type);
 		// todo: check for error
 	}
 

@@ -40,7 +40,7 @@ namespace asyncnet {
 		 * @param copy_request The request to copy options from
 		 * @param url URL to server
 		 */
-		[[deprecated("Use inherit_from()")]] explicit Request(const Request& copy_request, std::string url);
+		explicit Request(const Request& copy_request, std::string url);
 
 		Request(const Request& request);
 		Request(Request&& request) = default;

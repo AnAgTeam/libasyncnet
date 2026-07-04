@@ -50,7 +50,7 @@ namespace asyncnet {
 	void Request::set_timeout(const std::optional<std::chrono::system_clock::duration>& timeout) {
 		using namespace std::chrono;
 
-		const auto timeout_secs = duration_cast<seconds>(timeout.value_or(seconds(0))).count();
+		const auto timeout_secs = static_cast<long>(duration_cast<seconds>(timeout.value_or(seconds(0))).count());
 		set_option<curlpp::options::Timeout>(timeout_secs);
 	}
 
