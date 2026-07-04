@@ -93,7 +93,7 @@ namespace asyncnet {
 		 * @throws NetworkRuntimeError If any runtime error
 		 * @throws NetworkLogicError If any logic error
 		 */
-		[[nodiscard]] NetworkTask<Response> perform_request(const Request& request);
+		NetworkTask<Response> perform_request(const Request& request);
 
 	private:
 		void initialize_session();

@@ -18,12 +18,31 @@ namespace asyncnet {
 	}
 
 	Request::Request(const Request& other) :
-		share_(other.share_)
+		base_url_(other.base_url_),
+		share_(other.share_),
+		output_stream_(other.output_stream_)
 	{
 		options_.reserve(other.options_.size());
 		for (auto& item : other.options_) {
 			options_.emplace_back(item->clone());
 		}
+	}
+
+	Request& Request::inherit_from(const Request& other) {
+		share_ = other.share_;
+		output_stream_ = other.output_stream_;
+
+		options_.clear();
+		options_.reserve(other.options_.size());
+		for (const auto& item : other.options_) {
+			options_.emplace_back(item->clone());
+		}
+
+		// re-apply this request's own URL on top of the inherited options
+		if (!base_url_.empty()) {
+			set_url(base_url_);
+		}
+		return *this;
 	}
 
 	curlpp::Easy Request::make_request_handle() const {
@@ -98,6 +117,14 @@ namespace asyncnet {
 
 	const std::shared_ptr<CurlShared>& Request::get_share() const noexcept {
 		return share_;
+	}
+
+	void Request::set_output_stream(std::ostream* stream) noexcept {
+		output_stream_ = stream;
+	}
+
+	std::ostream* Request::get_output_stream() const noexcept {
+		return output_stream_;
 	}
 
 	PostRequest::PostRequest(std::string url, const std::string& data) : Request(std::move(url)) {

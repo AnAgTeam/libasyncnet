@@ -123,6 +123,29 @@ TEST_CASE("AsyncSession POST request") {
 	coro::sync_wait(worker(session));
 }
 
+TEST_CASE("AsyncSession GET request into output stream sink") {
+	AsyncSession session;
+
+	auto worker = [](AsyncSession& session) -> coro::task<void> {
+		std::ostringstream sink;
+
+		auto request = session.make_request<GetRequest>("https://httpbin.org/get");
+		request.set_output_stream(&sink);
+
+		auto resp = co_await session.perform_request(request);
+		CHECK(resp.get_status_code() == 200);
+
+		// body was streamed into the sink, not buffered in the Response
+		REQUIRE(resp.get_text().empty());
+
+		boost::json::object resp_object = parse_json_object(sink.str());
+		INFO(resp_object);
+		REQUIRE(resp_object.contains("url"));
+	};
+
+	coro::sync_wait(worker(session));
+}
+
 TEST_CASE("AsyncSession HEAD request") {
 	AsyncSession session;
 

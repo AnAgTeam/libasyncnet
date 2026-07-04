@@ -27,7 +27,10 @@ namespace asyncnet {
 	}
 
 	NetworkTask<Response> Requestor::perform_request(const Request& request) {
-		return perform_handle(request.make_request_handle());
+		if (shutting_down_.load(std::memory_order::acquire)) {
+			throw RuntimeError("Cannot perform_request when AsyncRequestor is shutting down");
+		}
+		co_return co_await CurlMulti::perform_handle(request.make_request_handle(), request.get_output_stream());
 	}
 
 	void Requestor::shutdown() {
