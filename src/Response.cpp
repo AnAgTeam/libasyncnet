@@ -1,11 +1,13 @@
 #include <asyncnet/Response.hpp>
 
 namespace asyncnet{
-	Response::Response(curlpp::Easy&& handle) : handle_(std::move(handle)) {
+	Response::Response(curlpp::Easy&& handle, std::string header_block)
+		: handle_(std::move(handle)), header_block_(std::move(header_block)) {
 
 	}
 
-	Response::Response(curlpp::Easy&& handle, std::ostringstream&& stream) : handle_(std::move(handle)), stream_(std::move(stream)) {
+	Response::Response(curlpp::Easy&& handle, std::ostringstream&& stream, std::string header_block)
+		: handle_(std::move(handle)), stream_(std::move(stream)), header_block_(std::move(header_block)) {
 
 	}
 
@@ -31,5 +33,19 @@ namespace asyncnet{
 		else {
 			return "";
 		}
+	}
+
+	const std::string& Response::get_header_block() const & {
+		return header_block_;
+	}
+
+	std::string Response::get_header_block() && {
+		return std::move(header_block_);
+	}
+
+	std::string Response::get_effective_url() const {
+		std::string url;
+		handle_.getCurlHandle().getInfo(CURLINFO_EFFECTIVE_URL, url);
+		return url;
 	}
 }

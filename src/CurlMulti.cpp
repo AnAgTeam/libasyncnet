@@ -7,6 +7,8 @@
 #include <curlpp/Options.hpp>
 #include <numeric>
 #include <ranges>
+#include <string>
+#include <string_view>
 
 using std::views::iota;
 
@@ -100,11 +102,33 @@ namespace asyncnet {
 		return promise.stop_requested() ? curl_cancel_request : curl_continue_request;
 	}
 
+	// Accumulate the final response's header block. curl invokes this once per
+	// header line (with a trailing CRLF) for every response in a redirect chain;
+	// clearing on each new status line ("HTTP/...") keeps only the last response's
+	// headers, and the status line itself is dropped so only "Name: Value" lines remain.
+	static size_t header_callback(char* buffer, size_t size, size_t nitems, void* userdata) {
+		const size_t total = size * nitems;
+		auto& block = *static_cast<std::string*>(userdata);
+		std::string_view line(buffer, total);
+		if (line.starts_with("HTTP/")) {
+			block.clear();
+		} else {
+			block.append(line);
+		}
+		return total;
+	}
+
 	NetworkTask<Response> CurlMulti::perform_handle(curlpp::Easy handle, std::ostream* output_stream) {
 		NetworkPromise<Response>& promise = co_await awaitables::get_self;
 		curl_easy_setopt(handle.getHandle(), CURLOPT_XFERINFOFUNCTION, &xferinfo_callback);
 		curl_easy_setopt(handle.getHandle(), CURLOPT_XFERINFODATA, &promise);
 		handle.setOpt(curlpp::options::NoProgress(false));
+
+		// Capture the response header block into a buffer owned by this coroutine
+		// frame (stays alive across the suspend, like the body sink below).
+		std::string header_block;
+		curl_easy_setopt(handle.getHandle(), CURLOPT_HEADERFUNCTION, &header_callback);
+		curl_easy_setopt(handle.getHandle(), CURLOPT_HEADERDATA, &header_block);
 
 		// Route the body either into the caller's sink (streamed, not buffered) or,
 		// when none is given, into an internal buffer owned by this coroutine frame.
@@ -132,9 +156,9 @@ namespace asyncnet {
 		curlpp::libcurlRuntimeAssert("Multi network request failed", exit_code);
 
 		if (owned_stream) {
-			co_return Response(std::move(handle), std::move(owned_stream.value()));
+			co_return Response(std::move(handle), std::move(owned_stream.value()), std::move(header_block));
 		}
-		co_return Response(std::move(handle));
+		co_return Response(std::move(handle), std::move(header_block));
 	}
 
 	CURLM* CurlMulti::get_handle() const noexcept {
