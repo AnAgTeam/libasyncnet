@@ -44,8 +44,12 @@ namespace asyncnet{
 	}
 
 	std::string Response::get_effective_url() const {
-		std::string url;
+		// curl returns CURLINFO_EFFECTIVE_URL as a char*, so getInfo must receive a
+		// char*& (a char** for curl). Passing a std::string& makes curl write the
+		// pointer over the string's internals and corrupt the heap; copy the C
+		// string out instead.
+		char* url = nullptr;
 		handle_.getCurlHandle().getInfo(CURLINFO_EFFECTIVE_URL, url);
-		return url;
+		return url ? std::string(url) : std::string();
 	}
 }
