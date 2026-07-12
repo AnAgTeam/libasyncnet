@@ -5,7 +5,6 @@
 #include <curlpp/cURLpp.hpp>
 #include <coro/sync_wait.hpp>
 
-#include <cassert>
 #include <iostream>
 
 namespace asyncnet {
@@ -21,9 +20,9 @@ namespace asyncnet {
 	}
 
 	NetworkTask<Response> Requestor::perform_handle(curlpp::Easy handle) {
-		// No new work after shutdown(): a usage error (assert in debug); the throw keeps
-		// release defined and covers a concurrent explicit shutdown() racing the submit.
-		assert(running() && "perform_handle() called after shutdown()");
+		// No new work once shutdown() has begun. This is recoverable (it can be a
+		// legitimate race with a concurrent explicit shutdown()), hence a throw, not an
+		// assert. Callers can test running() up front to avoid it.
 		if (!running()) {
 			throw RuntimeError("Cannot perform_handle when AsyncRequestor is shutting down");
 		}
@@ -31,7 +30,6 @@ namespace asyncnet {
 	}
 
 	NetworkTask<Response> Requestor::perform_request(const Request& request) {
-		assert(running() && "perform_request() called after shutdown()");
 		if (!running()) {
 			throw RuntimeError("Cannot perform_request when AsyncRequestor is shutting down");
 		}
