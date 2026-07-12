@@ -24,17 +24,32 @@ namespace asyncnet {
 	CurlMulti::CurlMulti(CURLM* handle) noexcept : handle_(handle) {}
 
 	CurlMulti::CurlMulti(CurlMulti&& other) noexcept : handle_(std::exchange(other.handle_, nullptr)) {
-		
+		// Only handle_ transfers. mutex_ and condition_awaiters_ are deliberately NOT
+		// carried over: an in-flight perform_handle() is a coroutine bound to `other`'s
+		// `this`, holding `other`'s mutex and an awaiter reference, and coro::mutex is
+		// not movable — so moving a CurlMulti with pending requests is unsound no matter
+		// where the map ends up. Precondition: `other` is idle (idle <=> empty map).
+		assert(other.condition_awaiters_.empty() &&
+			"moving a CurlMulti with in-flight requests is undefined");
 	}
 
 	CurlMulti::~CurlMulti() {
-		coro::sync_wait(cleanup());
+		// Only abort if requests are still pending. In the Requestor teardown path
+		// cleanup() already ran while the object was fully alive, leaving this empty,
+		// so skipping avoids a redundant nested sync_wait() here (on the detached
+		// worker thread). Reading unlocked is safe: an object being destroyed must
+		// not be used concurrently.
+		if (!condition_awaiters_.empty()) {
+			coro::sync_wait(cleanup());
+		}
 		curl_multi_cleanup(handle_);
 	}
 
 	CurlMulti& CurlMulti::operator=(CurlMulti&& other) noexcept {
 		if (std::addressof(other) != this) {
-			coro::sync_wait(cleanup());
+			if (!condition_awaiters_.empty()) {
+				coro::sync_wait(cleanup());
+			}
 			curl_multi_cleanup(handle_);
 			handle_ = std::exchange(other.handle_, nullptr);
 		}

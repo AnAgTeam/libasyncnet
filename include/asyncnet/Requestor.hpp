@@ -60,11 +60,14 @@ namespace asyncnet {
 	private:
 
 		/**
-		 * Requestor's thread body function
-		 * @param shared_this Shared ownership of this Requestor, kept alive for the
+		 * Requestor's thread body function.
+		 * @note STATIC on purpose: the coroutine frame carries no implicit `this`, so the
+		 *       only handle to the object is @p self. *self is destroyed at the explicit
+		 *       self.reset() at the end of the body — nothing may touch the object past it.
+		 * @param self Shared ownership of this Requestor, kept alive for the
 		 *        executor's lifetime; when it becomes the sole owner the executor shuts down
 		 */
-		coro::task<void> yield_executor(std::shared_ptr<Requestor> shared_this);
+		static coro::task<void> yield_executor(std::shared_ptr<Requestor> self);
 
 		int timeout_ms_;
 		std::atomic_bool shutting_down_;

@@ -52,24 +52,31 @@ namespace asyncnet {
 
 	std::shared_ptr<Requestor> Requestor::make_shared() {
 		auto ptr = std::make_shared<Requestor>(private_constructor{});
-		ptr->yield_thread_ = std::thread([ptr]() mutable {
-			// Take the raw self pointer before moving ptr into the coroutine frame,
-			// so the call target does not depend on argument evaluation order.
-			Requestor* self = ptr.get();
-			coro::sync_wait(self->yield_executor(std::move(ptr)));
+		ptr->yield_thread_ = std::thread([self = ptr]() mutable {
+			// The coroutine frame is owned by sync_wait, NOT by *self, so destroying
+			// *self from inside it is safe. yield_executor is a free (static) call, so
+			// there is no receiver to evaluate against the moved-from pointer.
+			coro::sync_wait(yield_executor(std::move(self)));
 		});
 		return ptr;
 	}
 
-	coro::task<void> Requestor::yield_executor(std::shared_ptr<Requestor> shared_this) {
-		while (!shutting_down_.load(std::memory_order_acquire)) {
-			if (shared_this.use_count() == 1) {
+	coro::task<void> Requestor::yield_executor(std::shared_ptr<Requestor> self) {
+		while (!self->shutting_down_.load(std::memory_order_acquire)) {
+			if (self.use_count() == 1) {
 				// there is only executor referencing the object, so shutdown
 				// TODO: use coroutine features to shutdown
-				shutdown();
+				self->shutdown();
 			}
-			co_await yield(timeout_ms_);
+			co_await self->yield(self->timeout_ms_);
 		}
-		co_await cleanup();
+		co_await self->cleanup();
+
+		// ---- point of no return ----
+		// Releasing the last reference runs ~Requestor HERE, on this (now detached)
+		// thread, only after all of this coroutine's own frames have left the stack.
+		// After this line `self` is empty and *self is gone: no member and no `this`
+		// is in scope, so nothing below can touch dead state. Keep this the LAST line.
+		self.reset();
 	}
 }
