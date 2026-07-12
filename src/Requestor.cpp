@@ -34,15 +34,13 @@ namespace asyncnet {
 	}
 
 	void Requestor::shutdown() {
+		// Signal only: flip the flag and wake the worker so it observes it and tears
+		// itself down (the worker self-detaches on loop exit). Thread disposition is
+		// no longer handled here, so this is safe to call from any thread — the worker
+		// itself, an external caller, or ~Requestor. NB: shutdown is now asynchronous;
+		// it returns before the worker has necessarily stopped.
 		if (shutting_down_.exchange(true, std::memory_order::acq_rel) == false) {
-			if (std::this_thread::get_id() != yield_thread_.get_id()) {
-				wakeup_polling();
-				yield_thread_.join();
-			}
-			else {
-				// detach thread, because trying to shutdown within 'yield_thread_'
-				yield_thread_.detach();
-			}
+			wakeup_polling();
 		}
 	}
 
@@ -51,32 +49,49 @@ namespace asyncnet {
 	}
 
 	std::shared_ptr<Requestor> Requestor::make_shared() {
-		auto ptr = std::make_shared<Requestor>(private_constructor{});
-		ptr->yield_thread_ = std::thread([self = ptr]() mutable {
-			// The coroutine frame is owned by sync_wait, NOT by *self, so destroying
-			// *self from inside it is safe. yield_executor is a free (static) call, so
-			// there is no receiver to evaluate against the moved-from pointer.
-			coro::sync_wait(yield_executor(std::move(self)));
+		auto real = std::make_shared<Requestor>(private_constructor{});
+		Requestor* raw = real.get();
+
+		// The public handle is a SEPARATE control block over the same object. It does
+		// not delete; its deleter (a) holds a strong ref for the whole time it runs —
+		// so curl_multi_wakeup() can never touch a freed handle, and an explicit
+		// shutdown() cannot destroy the object out from under a live handle — and
+		// (b) signals shutdown when the LAST public handle drops. Shutdown thus becomes
+		// an event, replacing the per-iteration use_count() poll.
+		std::shared_ptr<Requestor> handle(raw, [owner = real](Requestor*) mutable noexcept {
+			owner->shutting_down_.store(true, std::memory_order_release);
+			owner->wakeup_polling();
+			owner.reset();
 		});
-		return ptr;
+
+		// The worker owns the real (deleting) reference. Assign through `raw`: the LHS
+		// receiver must not depend on `real`, which is moved into the thread capture.
+		raw->yield_thread_ = std::thread([real = std::move(real)]() mutable {
+			coro::sync_wait(yield_executor(std::move(real)));
+		});
+		return handle;
 	}
 
 	coro::task<void> Requestor::yield_executor(std::shared_ptr<Requestor> self) {
+		// Shutdown is event-driven: the public handle's deleter sets the flag and wakes
+		// the poll (curl_multi_wakeup). No use_count() poll and no heartbeat needed to
+		// notice "no users left" — we block in yield() until an event arrives.
 		while (!self->shutting_down_.load(std::memory_order_acquire)) {
-			if (self.use_count() == 1) {
-				// there is only executor referencing the object, so shutdown
-				// TODO: use coroutine features to shutdown
-				self->shutdown();
-			}
 			co_await self->yield(self->timeout_ms_);
 		}
+
+		// Always on the worker thread here, so joining ourselves is impossible: detach
+		// up front so that whichever thread later runs ~Requestor finds yield_thread_
+		// non-joinable (a joinable std::thread destructor calls std::terminate()).
+		self->yield_thread_.detach();
+
 		co_await self->cleanup();
 
 		// ---- point of no return ----
-		// Releasing the last reference runs ~Requestor HERE, on this (now detached)
-		// thread, only after all of this coroutine's own frames have left the stack.
-		// After this line `self` is empty and *self is gone: no member and no `this`
-		// is in scope, so nothing below can touch dead state. Keep this the LAST line.
+		// Releasing the last reference runs ~Requestor HERE (or on the handle's last
+		// dropper, whichever is last) — after this coroutine's frames have left the
+		// stack and the thread is already detached. After this line *self is gone: no
+		// member and no `this` is in scope. Keep this the LAST line.
 		self.reset();
 	}
 }

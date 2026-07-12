@@ -47,7 +47,10 @@ namespace asyncnet {
 		virtual bool is_multithreaded() override;
 
 		/**
-		 * Prevent handle adding and cancel all the pending requests with CURLE_ABORTED_BY_CALLBACK
+		 * Prevent handle adding and cancel all the pending requests with CURLE_ABORTED_BY_CALLBACK.
+		 * @note Asynchronous: signals the worker and returns; the worker stops and tears
+		 *       down shortly after. The object stays alive while any handle from
+		 *       make_shared() is held.
 		 */
 		void shutdown();
 
@@ -64,8 +67,9 @@ namespace asyncnet {
 		 * @note STATIC on purpose: the coroutine frame carries no implicit `this`, so the
 		 *       only handle to the object is @p self. *self is destroyed at the explicit
 		 *       self.reset() at the end of the body — nothing may touch the object past it.
-		 * @param self Shared ownership of this Requestor, kept alive for the
-		 *        executor's lifetime; when it becomes the sole owner the executor shuts down
+		 * @param self The worker's owning (deleting) reference, kept alive for the
+		 *        executor's lifetime. Shutdown is event-driven (the public handle's
+		 *        deleter sets the flag and wakes the poll), not detected by use_count.
 		 */
 		static coro::task<void> yield_executor(std::shared_ptr<Requestor> self);
 

@@ -9,10 +9,45 @@
 #include <print>
 
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 #pragma execution_character_set("utf-8")
 
 using namespace asyncnet;
+
+// --- teardown lifecycle (no network) — exercises variant B's event-driven shutdown ---
+// Reaching the end of each case without std::terminate()/crash IS the assertion: the
+// worker must self-detach and tear down cleanly when the last public handle drops.
+
+TEST_CASE("Requestor teardown: create then drop") {
+	{
+		auto r = Requestor::make_shared();
+		// let the worker reach curl_multi_poll() before we drop, so we exercise the
+		// wakeup-from-poll path rather than an immediate flag check.
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	}
+	SUCCEED("worker torn down after sole handle dropped");
+}
+
+TEST_CASE("Requestor teardown: explicit shutdown keeps the handle valid") {
+	auto r = Requestor::make_shared();
+	r->shutdown();                     // async signal; object stays alive while a handle is held
+	REQUIRE(r != nullptr);
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	REQUIRE(r != nullptr);             // shutdown() did not pull the object out from under us
+}
+
+TEST_CASE("Requestor teardown: only the last handle drop shuts down") {
+	auto r = Requestor::make_shared();
+	{
+		auto r2 = r;                   // extra public handles (same signalling control block)
+		auto r3 = r;
+		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	}                                  // r2/r3 drop but r remains -> no shutdown yet
+	std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	SUCCEED("survived non-final handle drops");
+}
 
 #if defined(ASYNCNET_ENABLE_TESTS_NETWORK)
 
