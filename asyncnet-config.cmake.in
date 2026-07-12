@@ -1,9 +1,13 @@
 @PACKAGE_INIT@
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+include(CMakeFindDependencyMacro)
+find_dependency(Boost CONFIG COMPONENTS json)
 
-find_package(Boost REQUIRED COMPONENTS json)
-find_package(CURLPP REQUIRED)
-find_package(libcoro REQUIRED)
+# The exported targets file is asyncnet-targets.cmake (install(EXPORT
+# asyncnet-targets)); the old include referenced a non-existent
+# AsyncNetwork-targets.cmake, so find_package(asyncnet) errored on a missing file.
+include("${CMAKE_CURRENT_LIST_DIR}/asyncnet-targets.cmake")
 
-include("${CMAKE_CURRENT_LIST_DIR}/AsyncNetwork-targets.cmake")
+# NOTE: the vendored curlpp and libcoro static libs (and curl) are not installed
+# or exported, so they are not required here. A consumer linking asyncnet::asyncnet
+# must still provide those itself until they are installed/exported.

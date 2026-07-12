@@ -42,8 +42,12 @@ target_include_directories(asyncnet PUBLIC
 	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
+# Boost::json is a find_package'd imported target a consumer recreates via
+# find_dependency (see asyncnet-config.cmake.in), so it belongs on the install
+# interface too. curlpp / libcoro are vendored (Find modules add_subdirectory
+# them), not installed, so they stay build-only.
 target_link_libraries(asyncnet PUBLIC
-	$<BUILD_INTERFACE:${Boost_LIBRARIES}>
+	Boost::json
 	$<BUILD_INTERFACE:${CURLPP_LIBRARIES}>
 	$<BUILD_INTERFACE:${LIBCORO_LIBRARIES}>
 )
@@ -65,9 +69,15 @@ configure_package_config_file(
 	"${CMAKE_CURRENT_LIST_DIR}/asyncnet-config.cmake.in"
 	"${CMAKE_CURRENT_BINARY_DIR}/asyncnet-config.cmake"
 	INSTALL_DESTINATION
-		"{CMAKE_INSTALL_LIBDIR}/cmake/asyncnet"
+		"${CMAKE_INSTALL_LIBDIR}/cmake/asyncnet"
 	NO_SET_AND_CHECK_MACRO
 	NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+write_basic_package_version_file(
+	"${CMAKE_CURRENT_BINARY_DIR}/asyncnet-config-version.cmake"
+	VERSION "${PROJECT_VERSION}"
+	COMPATIBILITY SameMajorVersion
 )
 
 configure_file("asyncnet.pc.in" "asyncnet.pc" @ONLY)
@@ -90,4 +100,12 @@ install(EXPORT asyncnet-targets
 	NAMESPACE asyncnet::
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/asyncnet"
 	EXPORT_LINK_INTERFACE_LIBRARIES
+)
+
+# The package config + version file themselves — without this find_package(asyncnet)
+# finds no config and imports nothing.
+install(FILES
+	"${CMAKE_CURRENT_BINARY_DIR}/asyncnet-config.cmake"
+	"${CMAKE_CURRENT_BINARY_DIR}/asyncnet-config-version.cmake"
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/asyncnet"
 )
