@@ -48,11 +48,19 @@ namespace asyncnet {
 
 		/**
 		 * Prevent handle adding and cancel all the pending requests with CURLE_ABORTED_BY_CALLBACK.
+		 * After this, no new work may be submitted: perform_handle()/perform_request()
+		 * assert in debug and throw RuntimeError in release. Test with running().
 		 * @note Asynchronous: signals the worker and returns; the worker stops and tears
 		 *       down shortly after. The object stays alive while any handle from
 		 *       make_shared() is held.
 		 */
 		void shutdown();
+
+		/**
+		 * @return true while the requestor still accepts work; false once shutdown()
+		 *         has begun. Cheap to poll before submitting.
+		 */
+		[[nodiscard]] bool running() const noexcept;
 
 		/**
 		 * Constructs AsyncRequestor and creates a new thread which performs all the passed requests

@@ -5,6 +5,7 @@
 #include <curlpp/cURLpp.hpp>
 #include <coro/sync_wait.hpp>
 
+#include <cassert>
 #include <iostream>
 
 namespace asyncnet {
@@ -20,14 +21,18 @@ namespace asyncnet {
 	}
 
 	NetworkTask<Response> Requestor::perform_handle(curlpp::Easy handle) {
-		if (shutting_down_.load(std::memory_order::acquire)) {
+		// No new work after shutdown(): a usage error (assert in debug); the throw keeps
+		// release defined and covers a concurrent explicit shutdown() racing the submit.
+		assert(running() && "perform_handle() called after shutdown()");
+		if (!running()) {
 			throw RuntimeError("Cannot perform_handle when AsyncRequestor is shutting down");
 		}
 		co_return co_await CurlMulti::perform_handle(std::move(handle));
 	}
 
 	NetworkTask<Response> Requestor::perform_request(const Request& request) {
-		if (shutting_down_.load(std::memory_order::acquire)) {
+		assert(running() && "perform_request() called after shutdown()");
+		if (!running()) {
 			throw RuntimeError("Cannot perform_request when AsyncRequestor is shutting down");
 		}
 		co_return co_await CurlMulti::perform_handle(request.make_request_handle(), request.get_output_stream());
@@ -42,6 +47,10 @@ namespace asyncnet {
 		if (shutting_down_.exchange(true, std::memory_order::acq_rel) == false) {
 			wakeup_polling();
 		}
+	}
+
+	bool Requestor::running() const noexcept {
+		return !shutting_down_.load(std::memory_order::acquire);
 	}
 
 	bool Requestor::is_multithreaded() {

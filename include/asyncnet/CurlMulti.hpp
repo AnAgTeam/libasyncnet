@@ -91,7 +91,7 @@ namespace asyncnet {
 		 * Wakeup thread which is polling for events in yield() and exit immediately from yield()
 		 * Used when a new request is pushed, but already polling or to update poll timeout
 		 */
-		void wakeup_polling() const;
+		void wakeup_polling() const noexcept;
 
 	private:
 		struct HandleAwaiterContext {

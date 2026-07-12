@@ -180,7 +180,7 @@ namespace asyncnet {
 		return handle_;
 	}
 
-	void CurlMulti::wakeup_polling() const {
+	void CurlMulti::wakeup_polling() const noexcept {
 		curl_multi_wakeup(handle_);
 	}
 }
