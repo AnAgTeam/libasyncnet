@@ -518,7 +518,7 @@ namespace asyncnet {
 	class [[nodiscard]] NetworkTask : public CancellingTask<T, TaskPromise> {
 	public:
 
-		using CancellingTask<T, TaskPromise>::promise_type;
+		using typename CancellingTask<T, TaskPromise>::promise_type;
 		using coroutine_handle = std::coroutine_handle<promise_type>;
 
 		struct Awaitable {
