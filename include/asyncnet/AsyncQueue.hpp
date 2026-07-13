@@ -29,11 +29,11 @@ namespace asyncnet {
 		 * @brief Thread safe pushes value in queue. If there was waiters, execute them
 		 * @param value Value to push
 		 */
-		template<std::convertible_to<ValueType> T>
-		coro::task<void> push(T&& value) {
+		template<std::convertible_to<ValueType> U>
+		coro::task<void> push(U&& value) {
 			{
 				auto lock = co_await mutex_.scoped_lock();
-				queue_.push(std::forward<T>(value));
+				queue_.push(std::forward<U>(value));
 			}
 			co_await cv_.notify_one();
 		}
