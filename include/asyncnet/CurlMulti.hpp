@@ -53,6 +53,24 @@ namespace asyncnet {
 		coro::task<int> yield(int timeout_ms);
 
 		/**
+		 * Deliver the exit code of every transfer curl has finished to the coroutine
+		 * awaiting it, and remove the handle from the multi.
+		 * @return Number of transfers completed
+		 */
+		int deliver_finished();
+
+		/**
+		 * Abort every in-flight transfer whose stop was requested, without waiting for
+		 * curl to notice.
+		 * curl only observes a stop from the xferinfo callback, which it does not run
+		 * while connecting or doing the TLS handshake — so a cancel arriving in that
+		 * window would otherwise wait out the whole connect. Ending them here makes
+		 * cancellation immediate regardless of which phase the transfer is in.
+		 * @return Number of transfers aborted
+		 */
+		int abort_cancelled();
+
+		/**
 		 * Cancel all pending requests with CURLE_ABORTED_BY_CALLBACK error and clear queue.
 		 */
 		coro::task<void> cleanup();
@@ -97,6 +115,10 @@ namespace asyncnet {
 		struct HandleAwaiterContext {
 			coro::condition_variable cv;
 			std::optional<CURLcode> exit_code;
+			/// The awaiting request's promise, borrowed — it lives on that coroutine's
+			/// frame, which outlives its entry here. Only read to ask whether a stop was
+			/// requested; @see abort_cancelled().
+			NetworkPromise<Response>* promise = nullptr;
 		};
 
 		CURLM* handle_;
