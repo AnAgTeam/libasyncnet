@@ -246,7 +246,7 @@ void CurlMulti::cleanup() {
 }
 
 NetworkTask<Response> CurlMulti::perform_handle(curlpp::Easy handle, std::ostream* output_stream) {
-	auto& promise = co_await awaitables::get_self;
+	auto& promise = co_await detail::get_promise;
 	auto transfer = std::make_shared<Transfer>(std::move(handle), promise.stop_source().get_token(), output_stream, promise);
 	std::stop_callback wake_on_stop(transfer->stop, [this] { wakeup_polling(); });
 	TransferAwaiter awaiter(*this, transfer);

@@ -40,8 +40,8 @@ TEST_CASE("Connected promises use the original parent's counters through wrapper
 	NetworkPromise<std::string> grandchild;
 	constexpr long long previous_child_progress = 17;
 	child.set_read_bytes(previous_child_progress);
-	child.connect_with(parent);
-	grandchild.connect_with(child);
+	child.connect_with(parent.await_transform(detail::GetSelfTag{}).await_resume());
+	grandchild.connect_with(child.await_transform(detail::GetSelfTag{}).await_resume());
 	CHECK(child.read_bytes() == 0);
 	constexpr long long received = 256;
 	constexpr long long expected = 1024;
@@ -60,7 +60,7 @@ TEST_CASE("Connected promises use the original parent's counters through wrapper
 TEST_CASE("Progress can be observed while independent writers update connected promises", "[progress][stress]") {
 	NetworkPromise<void> parent;
 	NetworkPromise<int> child;
-	child.connect_with(parent);
+	child.connect_with(parent.await_transform(detail::GetSelfTag{}).await_resume());
 	constexpr long long updates = 100000;
 	std::latch start(3);
 	std::atomic<unsigned> finished{0};
@@ -94,3 +94,65 @@ TEST_CASE("Progress can be observed while independent writers update connected p
 	CHECK(parent.read_bytes() == updates);
 	CHECK(child.total_bytes() == updates);
 }
+
+namespace {
+constexpr long long context_received = 37;
+constexpr long long context_total = 91;
+
+NetworkTask<void> report_through_context(bool& saw_stop) {
+	auto token = co_await awaitables::get_stop_token;
+	saw_stop = token.stop_requested();
+	auto& promise = co_await detail::get_promise;
+	promise.set_read_bytes(context_received);
+	promise.set_total_bytes(context_total);
+}
+
+CancellingTask<void> bridge_context(TaskContext context, bool& saw_stop, bool use_lvalue) {
+	if (use_lvalue) {
+		auto child = report_through_context(saw_stop);
+		co_await child.connect_with(context);
+	} else {
+		co_await report_through_context(saw_stop).connect_with(context);
+	}
+}
+
+NetworkTask<void> context_parent(bool& saw_stop, bool use_lvalue, bool& ran) {
+	auto context = co_await awaitables::get_self;
+	static_assert(std::same_as<decltype(context), TaskContext>);
+	auto copied_context = context;
+	auto stop = co_await awaitables::get_stop_source;
+	stop.request_stop();
+	co_await bridge_context(copied_context, saw_stop, use_lvalue);
+	ran = true;
+}
+}
+
+static_assert(!std::is_default_constructible_v<TaskContext>);
+static_assert(!std::is_aggregate_v<TaskContext>);
+static_assert(std::is_trivially_copyable_v<TaskContext>);
+static_assert(!std::is_convertible_v<TaskContext, NetworkPromise<void>&>);
+
+TEST_CASE("Opaque contexts carry cancellation and progress through non-network wrappers", "[progress][context]") {
+	for (bool use_lvalue : {false, true}) {
+		bool saw_stop = false;
+		bool ran = false;
+		auto parent = context_parent(saw_stop, use_lvalue, ran);
+		parent.resume();
+		REQUIRE(parent.done());
+		REQUIRE_NOTHROW(parent.promise().result());
+		CHECK(ran);
+		CHECK(saw_stop);
+		CHECK(parent.read_bytes() == context_received);
+		CHECK(parent.total_bytes() == context_total);
+	}
+}
+
+template<typename Context>
+concept CanMutateProgress = requires(Context context) { context.set_read_bytes(1); };
+template<typename Context>
+concept CanConnectContext = requires(NetworkTask<void>& task, Context& context) {
+	task.connect_with(context);
+};
+static_assert(!CanMutateProgress<TaskContext>);
+static_assert(CanConnectContext<TaskContext>);
+static_assert(!CanConnectContext<NetworkPromise<void>>);

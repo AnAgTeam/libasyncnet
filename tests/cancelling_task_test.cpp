@@ -236,7 +236,7 @@ TEST_CASE("gather connect and stop from outside") {
 
 CORO_TEST_CASE("NetworkTask reports byte counters set on its promise") {
 	auto make_counting_task = []() -> NetworkTask<void> {
-		auto& self = co_await awaitables::get_self;
+		auto& self = co_await detail::get_promise;
 		self.set_total_bytes(1000);
 		self.set_read_bytes(250);
 	};
