@@ -488,13 +488,13 @@ TEST_CASE("Multi error still delivers cancellations already removed from its map
 	if (cancelled.done()) CHECK_THROWS_AS(cancelled.promise().result(), NetworkRuntimeError);
 	CHECK(active.done());
 	if (active.done())
-		CHECK_THROWS_WITH(active.promise().result(), "Cannot perform curl multi requests");
+		CHECK_THROWS_WITH(active.promise().result(), "Failed to process requests on the curl multi handle");
 	fail_timer = false;
 	multi.cleanup();
 	auto later = multi.perform_handle(file.handle());
 	later.resume();
 	REQUIRE(later.done());
-	CHECK_THROWS_WITH(later.promise().result(), "Cannot perform curl multi requests");
+	CHECK_THROWS_WITH(later.promise().result(), "Failed to process requests on the curl multi handle");
 }
 
 

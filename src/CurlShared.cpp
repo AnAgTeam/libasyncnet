@@ -5,7 +5,7 @@
 
 namespace asyncnet {
 	CurlShared::CurlShared() : handle_(curl_share_init()) {
-		curlpp::runtimeAssert("Error when trying to curl_share_init() a handle", handle_ != nullptr);
+		curlpp::runtimeAssert("Failed to initialize the curl shared handle", handle_ != nullptr);
 	}
 
 	CurlShared::~CurlShared() {

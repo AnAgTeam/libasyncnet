@@ -14,7 +14,7 @@ namespace asyncnet {
 
 	AsyncSession::AsyncSession(std::shared_ptr<RequestPerformer> requestor) : requestor_(std::move(requestor)) {
 		if (requestor_->is_multithreaded()) {
-			throw RuntimeError("Error when assigning a multithreaded RequestPerformer to AsyncSession");
+			throw RuntimeError("AsyncSession does not support a multithreaded RequestPerformer");
 		}
 		initialize_session();
 	}
@@ -53,7 +53,7 @@ namespace asyncnet {
 
 	void AsyncSession::set_requestor(std::shared_ptr<RequestPerformer> requestor) {
 		if (requestor_->is_multithreaded()) {
-			throw RuntimeError("Error when assigning a multithreaded RequestPerformer to AsyncSession");
+			throw RuntimeError("AsyncSession does not support a multithreaded RequestPerformer");
 		}
 		requestor_ = std::move(requestor);
 	}

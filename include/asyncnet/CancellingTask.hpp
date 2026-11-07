@@ -223,7 +223,7 @@ namespace asyncnet {
 				std::rethrow_exception(std::get<std::exception_ptr>(storage_));
 			}
 			else {
-				throw std::runtime_error("Promise value is unsetted");
+				throw std::runtime_error("Cannot retrieve the task result before a value or exception has been stored");
 			}
 		}
 
@@ -240,7 +240,7 @@ namespace asyncnet {
 				std::rethrow_exception(std::get<std::exception_ptr>(storage_));
 			}
 			else {
-				throw std::runtime_error("Promise value is unsetted");
+				throw std::runtime_error("Cannot retrieve the task result before a value or exception has been stored");
 			}
 		}
 
@@ -257,7 +257,7 @@ namespace asyncnet {
 				std::rethrow_exception(std::get<std::exception_ptr>(storage_));
 			}
 			else {
-				throw std::runtime_error("Promise value is unsetted");
+				throw std::runtime_error("Cannot retrieve the task result before a value or exception has been stored");
 			}
 		}
 

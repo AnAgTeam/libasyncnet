@@ -80,7 +80,7 @@ public:
 		const auto code = curl_multi_add_handle(owner_.handle_, handle);
 		if (code != CURLM_OK) {
 			owner_.transfers_.erase(handle);
-			throw RuntimeError("Cannot add curl multi handle");
+			throw RuntimeError("Failed to add the request to the curl multi handle");
 		}
 		transfer_->registered = true;
 		transfer_->continuation = continuation;
@@ -96,7 +96,7 @@ private:
 };
 
 CurlMulti::CurlMulti() : CurlMulti(curl_multi_init()) {
-	curlpp::runtimeAssert("Cannot initialize curl multi handle", handle_ != nullptr);
+	curlpp::runtimeAssert("Failed to initialize the curl multi handle", handle_ != nullptr);
 }
 CurlMulti::CurlMulti(CURLM* handle) noexcept : handle_(handle) {}
 CurlMulti::~CurlMulti() noexcept {
@@ -169,12 +169,12 @@ int CurlMulti::yield(int timeout_ms) {
 			collect_cancelled_locked(ready);
 			int running;
 			if (curl_multi_perform(handle_, &running) != CURLM_OK)
-				throw RuntimeError("Cannot perform curl multi requests");
+				throw RuntimeError("Failed to process requests on the curl multi handle");
 			collect_finished_locked(ready);
 			if (ready.empty() && !closed_ && pending_operations_.load(std::memory_order_relaxed) == 0) {
 				int events;
 				if (curl_multi_poll(handle_, nullptr, 0, timeout_ms, &events) != CURLM_OK)
-					throw RuntimeError("Cannot poll curl multi requests");
+					throw RuntimeError("Failed to poll the curl multi handle");
 			}
 			collect_cancelled_locked(ready);
 		} catch (...) {
@@ -253,7 +253,7 @@ NetworkTask<Response> CurlMulti::perform_handle(curlpp::Easy handle, std::ostrea
 	co_await awaiter;
 	promise.set_read_bytes(transfer->read_bytes);
 	promise.set_total_bytes(transfer->total_bytes);
-	curlpp::libcurlRuntimeAssert("Multi network request failed", transfer->result);
+	curlpp::libcurlRuntimeAssert("HTTP transfer failed", transfer->result);
 	if (transfer->body)
 		co_return Response(std::move(transfer->handle), std::move(*transfer->body), std::move(transfer->headers));
 	co_return Response(std::move(transfer->handle), std::move(transfer->headers));

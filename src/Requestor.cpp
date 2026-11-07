@@ -16,7 +16,7 @@ namespace asyncnet {
 		rethrow_failure();
 		if (shutting_down_.load(std::memory_order::acquire)) {
 			rethrow_failure();
-			throw RuntimeError("Cannot perform_handle when AsyncRequestor is shutting down");
+			throw RuntimeError("Cannot submit a request: Requestor is shutting down");
 		}
 		co_return co_await CurlMulti::perform_handle(std::move(handle));
 	}
@@ -25,7 +25,7 @@ namespace asyncnet {
 		rethrow_failure();
 		if (shutting_down_.load(std::memory_order::acquire)) {
 			rethrow_failure();
-			throw RuntimeError("Cannot perform_request when AsyncRequestor is shutting down");
+			throw RuntimeError("Cannot submit a request: Requestor is shutting down");
 		}
 		co_return co_await CurlMulti::perform_handle(request.make_request_handle(), request.get_output_stream());
 	}
