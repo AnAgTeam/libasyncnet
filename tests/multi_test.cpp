@@ -26,7 +26,7 @@ CORO_TEST_CASE("CurlMulti 2 GET requests") {
 
 	int remaining = 0;
 	do {
-		remaining = co_await multi.yield(1000);
+		remaining = multi.yield(1000);
 	} while (remaining > 0);
 
 	Response resp1 = co_await std::move(task1);
@@ -35,6 +35,6 @@ CORO_TEST_CASE("CurlMulti 2 GET requests") {
 	REQUIRE(resp1.get_status_code() == 200);
 	REQUIRE(resp2.get_status_code() == 200);
 
-	co_await multi.cleanup();
+	multi.cleanup();
 }
 #endif

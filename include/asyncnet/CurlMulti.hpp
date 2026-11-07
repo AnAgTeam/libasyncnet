@@ -3,7 +3,10 @@
 #include <asyncnet/Response.hpp>
 
 #include <curl/multi.h>
-#include <coro/condition_variable.hpp>
+#include <mutex>
+#include <exception>
+#include <atomic>
+#include <vector>
 #include <memory>
 #include <map>
 #include <optional>
@@ -25,32 +28,31 @@ namespace asyncnet {
 		 */
 		explicit CurlMulti(CURLM* handle) noexcept;
 		CurlMulti(const CurlMulti& other) = delete;
-		CurlMulti(CurlMulti&& other) noexcept;
+		CurlMulti(CurlMulti&& other) = delete;
 
 		/**
-		 * Cleanup the multi handle.
-		 * @note All the pending tasks will be cancelled and run syncronously. To cleanup asyncronously use @see cleanup
-		 * @throw RuntimeError If has pending handles in the queue
+		 * @brief Close the transport and release the multi handle.
+		 * @note Pending requests are cancelled synchronously outside the transport lock.
+		 *       No other thread may access this object during destruction.
 		 */
 		~CurlMulti() noexcept;
 
 		CurlMulti& operator=(const CurlMulti& other) = delete;
 
-		/**
-		 * Effectively move multi inteface and queue 
-		 * @note All the pending tasks will be cancelled and ran syncronously. To cleanup asyncronously use @see cleanup
-		 */
-		CurlMulti& operator=(CurlMulti&& other) noexcept;
+		// Active tasks borrow this object, so its address must remain stable.
+		CurlMulti& operator=(CurlMulti&& other) = delete;
 
 		/**
-		 * Process all the pending requests in the queue.
+		 * @brief Process pending requests synchronously without suspending the poller.
 		 * Returns if timeout exceeded, has empty queue or a new request has pushed by perform_handle().
 		 * Should be called constantly to actually process requests.
 		 * Internally calls @ref curl_multi_perform() and @ref curl_multi_poll()
 		 * @param timeout_ms Timeout of pull in milliseconds
-		 * @return Currently active requests in the queue
+		 * @return Requests still active after completion callbacks, including reentrant additions.
+		 * @note Continuations execute on the calling thread outside the transport lock.
+		 *       They should suspend or return promptly to avoid delaying other transfers.
 		 */
-		coro::task<int> yield(int timeout_ms);
+		int yield(int timeout_ms);
 
 		/**
 		 * Deliver the exit code of every transfer curl has finished to the coroutine
@@ -71,14 +73,28 @@ namespace asyncnet {
 		int abort_cancelled();
 
 		/**
-		 * Cancel all pending requests with CURLE_ABORTED_BY_CALLBACK error and clear queue.
+		 * @brief Permanently close the transport and cancel pending requests.
+		 * Subsequent requests complete with CURLE_ABORTED_BY_CALLBACK. Idempotent.
 		 */
-		coro::task<void> cleanup();
+		void cleanup();
+
+		/**
+		 * @brief Close the transport with a fatal error and deliver pending completions.
+		 * Completed curl results and processed cancellations retain their outcomes.
+		 * Active and future requests receive the first fatal error, even after cleanup.
+		 * @param failure Non-null exception describing the transport failure.
+		 */
+		void fail_all(std::exception_ptr failure);
+
+		/**
+		 * @brief Rethrow the saved fatal transport error, if any.
+		 */
+		void rethrow_failure();
 
 		/**
 		 * Cancel all pending requests with CURLE_ABORTED_BY_CALLBACK error and clear queue.
 		 */
-		coro::task<void> abort_all();
+		void abort_all();
 
 		/**
 		 * @brief perform curl easy handle.
@@ -91,6 +107,8 @@ namespace asyncnet {
 		 *		Otherwise the body is streamed into @p output_stream (which must outlive the task)
 		 *		and @ref Response::get_text() returns empty. It sets @ref ProgressFunction and
 		 *		@ref NoProgress options, ignoring user's
+		 * @note Keep this object alive until the task completes or is destroyed.
+		 *       Task destruction must not race with its execution or completion delivery.
 		 * @param handle The handle to execute asyncronously
 		 * @param output_stream Optional caller-owned stream to receive the body, or nullptr to buffer internally
 		 * @return Awaitable task returning @see Response from request
@@ -112,17 +130,24 @@ namespace asyncnet {
 		void wakeup_polling() const;
 
 	private:
-		struct HandleAwaiterContext {
-			coro::condition_variable cv;
-			std::optional<CURLcode> exit_code;
-			/// The awaiting request's promise, borrowed — it lives on that coroutine's
-			/// frame, which outlives its entry here. Only read to ask whether a stop was
-			/// requested; @see abort_cancelled().
-			NetworkPromise<Response>* promise = nullptr;
-		};
+		struct Transfer;
+		class TransferAwaiter;
+		using Completions = std::vector<std::shared_ptr<Transfer>>;
+
+		void finish_locked(CURL* handle, CURLcode code, Completions& ready);
+		void fail_locked(std::exception_ptr failure, Completions& ready);
+		void collect_finished_locked(Completions& ready);
+		void collect_cancelled_locked(Completions& ready);
+		void resume_ready(Completions ready);
+		std::unique_lock<std::mutex> interrupt_lock();
+		void abandon(const std::shared_ptr<Transfer>& transfer);
 
 		CURLM* handle_;
-		mutable coro::mutex mutex_;
-		std::map<CURL*, HandleAwaiterContext> condition_awaiters_;
+		// Serializes every multi operation except curl_multi_wakeup, and all entries.
+		mutable std::mutex mutex_;
+		std::map<CURL*, std::shared_ptr<Transfer>> transfers_;
+		std::atomic<unsigned> pending_operations_{0};
+		bool closed_ = false;
+		std::exception_ptr failure_;
 	};
 }

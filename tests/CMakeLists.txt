@@ -8,6 +8,7 @@ set(ASYNCNET_TESTS_SOURCES
 	"session_test.cpp"
 	"request_test.cpp"
 	"multi_test.cpp"
+	"multi_lifecycle_test.cpp"
 	"cancelling_task_test.cpp"
 	"progress_test.cpp"
 )
@@ -27,3 +28,9 @@ set_property(TARGET asyncnetTests PROPERTY CXX_STANDARD 23)
 target_link_libraries(asyncnetTests PRIVATE 
 	asyncnet
 )
+add_test(NAME asyncnet.lifecycle COMMAND asyncnetTests "[lifecycle]")
+set_tests_properties(asyncnet.lifecycle PROPERTIES TIMEOUT 60)
+if (NOT ASYNCNET_BUILD_TESTS_NETWORK)
+	add_test(NAME asyncnet.unit COMMAND asyncnetTests "~[lifecycle]")
+	set_tests_properties(asyncnet.unit PROPERTIES TIMEOUT 60)
+endif()
