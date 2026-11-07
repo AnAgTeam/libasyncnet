@@ -9,6 +9,7 @@ set(ASYNCNET_TESTS_SOURCES
 	"request_test.cpp"
 	"multi_test.cpp"
 	"cancelling_task_test.cpp"
+	"progress_test.cpp"
 )
 set(ASYNC_NETWORK_TESTS_HEADERS
 	"catch_amalgamated.hpp"

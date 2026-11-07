@@ -4,6 +4,7 @@
 #include <coroutine>
 #include <variant>
 #include <stop_token>
+#include <atomic>
 
 /*
 	Big thanks to developers of libcoro!! <3
@@ -25,6 +26,13 @@ namespace asyncnet {
 	class NetworkTask;
 
 	namespace detail {
+		// Independent progress observations, not a transactional read/total pair.
+		// Shared by borrowing the parent promise's counters when tasks are connected.
+		struct NetworkProgress {
+			std::atomic<long long> read_bytes{0};
+			std::atomic<long long> total_bytes{0};
+		};
+
 		struct GetStopTokenTag {
 			explicit GetStopTokenTag() = default;
 		};
@@ -283,50 +291,28 @@ namespace asyncnet {
 
 		using Promise<T>::await_transform;
 
-		const long long& read_bytes() const {
-			if (std::holds_alternative<long long>(read_bytes_count_)) {
-				return std::get<long long>(read_bytes_count_);
-			}
-			return *std::get<long long*>(read_bytes_count_);
+		/**
+		 * @brief Read the independently published number of received bytes.
+		 * @return An atomic snapshot; not synchronized with total_bytes().
+		 */
+		long long read_bytes() const noexcept {
+			return progress_->read_bytes.load(std::memory_order_relaxed);
 		}
 
-		const long long& total_bytes() const {
-			if (std::holds_alternative<long long>(total_bytes_count_)) {
-				return std::get<long long>(total_bytes_count_);
-			}
-			return *std::get<long long*>(total_bytes_count_);
+		/**
+		 * @brief Read the independently published expected transfer size.
+		 * @return An atomic snapshot; zero may mean the size is unknown.
+		 */
+		long long total_bytes() const noexcept {
+			return progress_->total_bytes.load(std::memory_order_relaxed);
 		}
 
-		long long& read_bytes() {
-			if (std::holds_alternative<long long>(read_bytes_count_)) {
-				return std::get<long long>(read_bytes_count_);
-			}
-			return *std::get<long long*>(read_bytes_count_);
+		void set_read_bytes(long long value) noexcept {
+			progress_->read_bytes.store(value, std::memory_order_relaxed);
 		}
 
-		long long& total_bytes() {
-			if (std::holds_alternative<long long>(total_bytes_count_)) {
-				return std::get<long long>(total_bytes_count_);
-			}
-			return *std::get<long long*>(total_bytes_count_);
-		}
-
-		void set_read_bytes(long long new_read_bytes) {
-			if (std::holds_alternative<long long>(read_bytes_count_)) {
-				std::get<long long>(read_bytes_count_) = new_read_bytes;
-			}
-			else {
-				*std::get<long long*>(read_bytes_count_) = new_read_bytes;
-			}
-		}
-
-		void set_total_bytes(long long new_total_bytes) {
-			if (std::holds_alternative<long long>(total_bytes_count_)) {
-				std::get<long long>(total_bytes_count_) = new_total_bytes;
-			}
-			else {
-				*std::get<long long*>(total_bytes_count_) = new_total_bytes;
-			}
+		void set_total_bytes(long long value) noexcept {
+			progress_->total_bytes.store(value, std::memory_order_relaxed);
 		}
 
 		NetworkTask<T> get_return_object() noexcept;
@@ -335,6 +321,8 @@ namespace asyncnet {
 		 * Adopt @p other_promise's stop state and progress counters, so a stop requested
 		 * on it reaches this coroutine and the bytes it reads are reported there.
 		 * @param other_promise The promise to get connected to
+		 * @note Connect before execution and publication to progress observers.
+		 *       The parent owning the shared counters must outlive this task.
 		 * @warning Call this BEFORE the task is started. Connecting REPLACES this task's
 		 *          stop_source with @p other_promise's, so whatever was read from the old
 		 *          one is silently orphaned: a stop_token the body already took still names
@@ -347,14 +335,15 @@ namespace asyncnet {
 		void connect_with(NetworkPromise<U>& other_promise) {
 			this->set_stop_source(other_promise.stop_source());
 
-			read_bytes_count_ = std::addressof(other_promise.read_bytes());
-			total_bytes_count_ = std::addressof(other_promise.total_bytes());
+			progress_ = other_promise.progress_;
 		}
 
 	private:
 
-		std::variant<long long, long long*> read_bytes_count_;
-		std::variant<long long, long long*> total_bytes_count_;
+		template<typename> friend class NetworkPromise;
+		detail::NetworkProgress owned_progress_;
+		// Connected before execution; the parent must outlive the child.
+		detail::NetworkProgress* progress_ = &owned_progress_;
 	};
 
 	namespace awaitables {
