@@ -1,9 +1,5 @@
 #include "catch_amalgamated.hpp"
-#ifdef ASYNCNET_TEST_VENDORED_PROGRESS
-#include <aniparse/net/vendor/CancellingTask.hpp>
-#else
 #include <asyncnet/CancellingTask.hpp>
-#endif
 #include <atomic>
 #include <concepts>
 #include <latch>

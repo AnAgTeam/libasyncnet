@@ -1,9 +1,14 @@
 {
-	"name": "asyncnetwork",
-	"version": "2.0",
-	"dependencies": [
-		"boost-json",
-		"boost-system",
-		"curl"
-	]
+  "name": "asyncnetwork",
+  "version": "2.0",
+  "features": {
+    "client": {
+      "description": "HTTP client dependencies",
+      "dependencies": [
+        "boost-json",
+        "boost-system",
+        "curl"
+      ]
+    }
+  }
 }

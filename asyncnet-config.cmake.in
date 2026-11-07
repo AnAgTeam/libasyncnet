@@ -1,13 +1,22 @@
 @PACKAGE_INIT@
 
-include(CMakeFindDependencyMacro)
-find_dependency(Boost CONFIG COMPONENTS json)
+include("${CMAKE_CURRENT_LIST_DIR}/asyncnet-task-targets.cmake")
+set(asyncnet_task_FOUND TRUE)
 
-# The exported targets file is asyncnet-targets.cmake (install(EXPORT
-# asyncnet-targets)); the old include referenced a non-existent
-# AsyncNetwork-targets.cmake, so find_package(asyncnet) errored on a missing file.
-include("${CMAKE_CURRENT_LIST_DIR}/asyncnet-targets.cmake")
+# A task-only consumer never discovers the HTTP client's dependencies, even
+# when this package was installed with the client enabled.
+if ("client" IN_LIST asyncnet_FIND_COMPONENTS OR
+    (NOT asyncnet_FIND_COMPONENTS AND @ASYNCNET_BUILD_CLIENT@))
+    if (@ASYNCNET_BUILD_CLIENT@)
+        include(CMakeFindDependencyMacro)
+        find_dependency(Boost CONFIG COMPONENTS json)
+        include("${CMAKE_CURRENT_LIST_DIR}/asyncnet-targets.cmake")
+        set(asyncnet_client_FOUND TRUE)
+    else()
+        set(asyncnet_client_FOUND FALSE)
+    endif()
+endif()
+check_required_components(asyncnet)
 
-# NOTE: the vendored curlpp and libcoro static libs (and curl) are not installed
-# or exported, so they are not required here. A consumer linking asyncnet::asyncnet
-# must still provide those itself until they are installed/exported.
+# The client still requires consumers to provide the vendored curlpp/libcoro
+# libraries; their installation is independent of the task-only component.

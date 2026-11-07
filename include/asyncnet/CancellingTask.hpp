@@ -6,6 +6,7 @@
 #include <stop_token>
 #include <atomic>
 #include <memory>
+#include <utility>
 
 /*
 	Big thanks to developers of libcoro!! <3
@@ -673,6 +674,10 @@ namespace asyncnet {
 	template<typename T>
 	CancellingTask<T> Promise<T>::get_return_object() noexcept {
 		return CancellingTask<T>{ coroutine_handle::from_promise(*this) };
+	}
+
+	inline CancellingTask<void> Promise<void>::get_return_object() noexcept {
+		return CancellingTask<void>{ coroutine_handle::from_promise(*this) };
 	}
 
 	template<typename T>

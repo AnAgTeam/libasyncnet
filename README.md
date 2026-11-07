@@ -207,3 +207,39 @@ DerivedTask<void> derived_coroutine() {
 	// co_await request;
 };
 ```
+
+## Task-only CMake component
+
+`asyncnet::task` provides `CancellingTask`, `NetworkTask`, cancellation, and
+progress using only the C++20 standard library. It does not require curl,
+Boost, libcoro, or any initialized dependency submodules.
+
+For an embedded checkout:
+
+```cmake
+set(ASYNCNET_BUILD_CLIENT OFF)
+add_subdirectory(libasyncnet)
+target_link_libraries(my_target PRIVATE asyncnet::task)
+```
+
+To install only the task component:
+
+```sh
+cmake -S . -B build-task -DASYNCNET_BUILD_CLIENT=OFF -DCMAKE_INSTALL_PREFIX=/your/prefix
+cmake --install build-task
+```
+
+An installed consumer uses:
+
+```cmake
+find_package(asyncnet CONFIG REQUIRED COMPONENTS task)
+target_link_libraries(my_target PRIVATE asyncnet::task)
+```
+
+This component also works with a full installation without discovering the
+HTTP client's dependencies. `ASYNCNET_BUILD_CLIENT` defaults to `ON` for existing
+client builds; its vcpkg dependencies are selected through the `client` feature.
+Initialize the asyncnet submodule without `--recursive` when only tasks are needed.
+`ASYNCNET_BUILD_TESTS=ON` runs the dependency-free task/progress suite even with
+the client disabled. Helpers in `WhenAll.hpp` still require libcoro and are not
+part of the task-only installed headers.
