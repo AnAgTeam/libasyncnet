@@ -122,7 +122,7 @@ if (ASYNCNET_BUILD_CLIENT)
 
 endif() # ASYNCNET_BUILD_CLIENT
 
-install(FILES include/asyncnet/CancellingTask.hpp
+install(FILES include/asyncnet/CancellingTask.hpp include/asyncnet/Gather.hpp
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/asyncnet)
 install(FILES include/asyncnet/utility/Concepts.hpp
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/asyncnet/utility)

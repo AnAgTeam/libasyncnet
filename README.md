@@ -118,7 +118,27 @@ int main() {
 ### Make simultaneous requests
 Multiple requests can be co_await'ed requests in parallel and either:
 * get individual tasks via `when_all`. Exception is rethrown when calling `return_value()` 
-* get only returns via `gather`. The exception is rethrown immediately when structured bind
+* get values via `gather`. It waits for every child, then rethrows the first
+  exception in argument order from `co_await`, even if the results are discarded.
+  Results are returned only if all children succeeded. Use `when_all` to inspect
+  individual failures and successful results separately.
+
+`gather` is available from `<asyncnet/Gather.hpp>` without libcoro. It owns its
+inputs and returned results keep the child coroutine frames alive. Value results
+are exposed by reference into those frames; explicit lvalue reference results
+keep their original identity, and `void` results use `std::monostate`. Keep the
+result object alive while using references into it. Borrowed inputs, coroutine
+receivers and externally referenced results must outlive their use.
+
+Inside an asyncnet task, `gather` automatically shares the parent's stop state
+with cancellable children. Network children also share a network parent's progress
+counters; these counters are shared observations, not a sum of parallel transfers.
+The explicit `gather(stop_source, ...)` overload overrides the inherited stop state
+and also works from foreign coroutines. Cancellation is cooperative: the group
+still waits for every child, including awaitables without cancellation support.
+Pass unstarted tasks and await the group once; do not move or destroy an active
+group or its awaiting coroutine.
+
 ```cpp
 #include <asyncnet/AsyncSession.hpp>
 #include <asyncnet/WhenAll.hpp>
@@ -150,7 +170,6 @@ asyncnet::NetworkTask<void> my_api_post_request(std::shared_ptr<asyncnet::AsyncS
 	// or get values in-place
 	try {
 		auto [response1, response2] = co_await asyncnet::gather(
-			co_await asyncnet::awaitables::get_stop_source,
 			session->perform_request(request),
 			session->perform_request(info_request)
 		);
@@ -240,6 +259,8 @@ This component also works with a full installation without discovering the
 HTTP client's dependencies. `ASYNCNET_BUILD_CLIENT` defaults to `ON` for existing
 client builds; its vcpkg dependencies are selected through the `client` feature.
 Initialize the asyncnet submodule without `--recursive` when only tasks are needed.
-`ASYNCNET_BUILD_TESTS=ON` runs the dependency-free task/progress suite even with
-the client disabled. Helpers in `WhenAll.hpp` still require libcoro and are not
-part of the task-only installed headers.
+`ASYNCNET_BUILD_TESTS=ON` runs the dependency-free task/progress/gather suite even
+with the client disabled. `Gather.hpp` is included in task-only installations.
+The `when_all` adapter in `WhenAll.hpp` still requires libcoro and is not part of
+the task-only installed headers. Existing full-client users can also access
+`gather` through `WhenAll.hpp`.

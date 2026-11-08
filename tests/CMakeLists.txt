@@ -1,6 +1,6 @@
 # This suite also builds in a checkout with no initialized dependency submodules.
 find_package(Threads REQUIRED)
-add_executable(asyncnetTaskTests catch_amalgamated.cpp progress_test.cpp)
+add_executable(asyncnetTaskTests catch_amalgamated.cpp progress_test.cpp gather_test.cpp)
 target_link_libraries(asyncnetTaskTests PRIVATE asyncnet::task Threads::Threads)
 add_test(NAME asyncnet.task COMMAND asyncnetTaskTests)
 set_tests_properties(asyncnet.task PROPERTIES TIMEOUT 60)
