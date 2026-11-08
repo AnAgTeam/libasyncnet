@@ -554,3 +554,85 @@ TEST_CASE("Gather retains prvalue awaitable results without any value transfers"
     finish(task);
     CHECK(counts.live == 0);
 }
+
+namespace {
+struct ObservedTask : NetworkTask<int> {
+    ObservedTask(NetworkTask<int> task, int& observations)
+        : NetworkTask<int>(std::move(task)), observations(observations) {}
+    int& observations;
+    auto operator co_await() const&& noexcept {
+        ++observations;
+        return std::move(static_cast<const NetworkTask<int>&>(*this)).operator co_await();
+    }
+};
+NetworkTask<int> integer_value() { co_return 42; }
+NetworkTask<void> custom_task_awaiter(int& observations) {
+    auto [value, plain] = co_await gather(ObservedTask{integer_value(), observations}, integer_value());
+    CHECK(value == 42);
+    CHECK(plain == 42);
+}
+
+NetworkTask<void> completed_inputs() {
+    auto value = integer_value();
+    auto empty = nothing();
+    auto failed = fail();
+    value.resume();
+    empty.resume();
+    failed.resume();
+    REQUIRE(value.done());
+    REQUIRE(empty.done());
+    REQUIRE(failed.done());
+    auto [answer, placeholder, unstarted] = co_await gather(std::move(value), std::move(empty), integer_value());
+    CHECK(answer == 42);
+    CHECK(unstarted == 42);
+    bool caught = false;
+    try {
+        co_await gather(std::move(failed), nothing());
+    } catch (const std::runtime_error& error) {
+        caught = true;
+        CHECK(std::string(error.what()) == "gather child failed");
+    }
+    CHECK(caught);
+}
+}
+
+TEST_CASE("Gather keeps custom task awaiters on the generic path", "[gather]") {
+    int observations = 0;
+    auto task = custom_task_awaiter(observations);
+    finish(task);
+    CHECK(observations == 1);
+}
+
+TEST_CASE("Gather does not resume tasks that have already completed", "[gather]") {
+    auto task = completed_inputs();
+    finish(task);
+}
+
+TEST_CASE("Task completion returns a continuation and can be replaced", "[task][completion]") {
+    struct Target {
+        std::coroutine_handle<> continuation;
+        int notifications = 0;
+    };
+    auto receiver = nothing();
+    auto child = nothing();
+    Target target{receiver.handle()};
+    child.promise().completion({&target, [](void* context) noexcept {
+        auto& target = *static_cast<Target*>(context);
+        ++target.notifications;
+        return target.continuation;
+    }});
+
+    SECTION("Completion transfers to the returned coroutine") {
+        child.handle().resume();
+        CHECK(target.notifications == 1);
+        CHECK(child.handle().done());
+        CHECK(receiver.handle().done());
+    }
+    SECTION("Ordinary continuation replaces the callback") {
+        child.promise().continuation(receiver.handle());
+        child.handle().resume();
+        CHECK(target.notifications == 0);
+        CHECK(child.handle().done());
+        CHECK(receiver.handle().done());
+    }
+}

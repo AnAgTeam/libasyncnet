@@ -126,6 +126,8 @@ install(FILES include/asyncnet/CancellingTask.hpp include/asyncnet/Gather.hpp
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/asyncnet)
 install(FILES include/asyncnet/utility/Concepts.hpp
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/asyncnet/utility)
+install(FILES include/asyncnet/detail/TaskGroup.hpp include/asyncnet/detail/Completion.hpp
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/asyncnet/detail)
 install(TARGETS asyncnet-task EXPORT asyncnet-task-targets)
 install(EXPORT asyncnet-task-targets NAMESPACE asyncnet::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/asyncnet)

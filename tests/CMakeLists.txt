@@ -5,6 +5,12 @@ target_link_libraries(asyncnetTaskTests PRIVATE asyncnet::task Threads::Threads)
 add_test(NAME asyncnet.task COMMAND asyncnetTaskTests)
 set_tests_properties(asyncnet.task PROPERTIES TIMEOUT 60)
 
+# Verify that native task groups add no per-child coroutine allocations.
+add_executable(asyncnetGatherAllocationTests gather_allocation_test.cpp)
+target_link_libraries(asyncnetGatherAllocationTests PRIVATE asyncnet::task)
+add_test(NAME asyncnet.gather_allocations COMMAND asyncnetGatherAllocationTests)
+set_tests_properties(asyncnet.gather_allocations PROPERTIES TIMEOUT 60)
+
 if (NOT ASYNCNET_BUILD_CLIENT)
     return()
 endif()

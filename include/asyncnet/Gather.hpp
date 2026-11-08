@@ -1,5 +1,6 @@
 #pragma once
 #include <asyncnet/CancellingTask.hpp>
+#include <asyncnet/detail/TaskGroup.hpp>
 #include <cassert>
 #include <optional>
 #include <tuple>
@@ -46,26 +47,13 @@ void connect_gather_input(T& input, const GatherContext& context) {
     }
 }
 
-struct GatherLatch {
-    explicit GatherLatch(std::size_t children) : remaining(children + 1) {}
-
-    // The extra arrival belongs to await_suspend. Children cannot resume the
-    // parent until every child has been started and the continuation is set.
-    std::atomic<std::size_t> remaining;
-    std::coroutine_handle<> continuation;
-
-    bool arrive() noexcept {
-        return remaining.fetch_sub(1, std::memory_order_acq_rel) == 1;
-    }
-};
-
 struct GetGatherContext {};
 
 template<typename T>
 class GatherChild {
 public:
     struct promise_type {
-        GatherLatch* latch = nullptr;
+        TaskGroup* latch = nullptr;
         GatherContext context;
         std::remove_reference_t<T>* value = nullptr;
         std::exception_ptr exception;
@@ -80,7 +68,7 @@ public:
             std::coroutine_handle<> await_suspend(std::coroutine_handle<promise_type> handle) const noexcept {
                 auto* latch = handle.promise().latch;
                 // No access to the frame after handing control back to its owner.
-                return latch->arrive() ? latch->continuation : std::noop_coroutine();
+                return latch->complete_child();
             }
             void await_resume() const noexcept {}
         };
@@ -109,7 +97,7 @@ public:
     GatherChild(GatherChild&& other) noexcept : handle_(std::exchange(other.handle_, {})) {}
     ~GatherChild() { if (handle_) handle_.destroy(); }
 
-    void start(GatherLatch& latch, const GatherContext& context) {
+    void start(TaskGroup& latch, const GatherContext& context) {
         auto& promise = handle_.promise();
         promise.latch = &latch;
         promise.context = context;
@@ -144,7 +132,7 @@ template<typename A>
 using GatherValue = std::conditional_t<std::is_void_v<GatherReturn<A>>, std::monostate, GatherReturn<A>>;
 
 template<GatherInput A>
-GatherChild<GatherValue<A>> make_gather_child(A input) {
+GatherChild<GatherValue<A>> make_gather_wrapper(A input) {
     const auto& context = co_await GetGatherContext{};
     connect_gather_input(input, context);
     if constexpr (std::is_void_v<GatherReturn<A>>) {
@@ -157,11 +145,83 @@ GatherChild<GatherValue<A>> make_gather_child(A input) {
     }
 }
 
+// Only the exact built-in task/promise combinations use direct completion.
+// Custom task awaiters or promises may change scheduling or result semantics;
+// keep those on the generic co_await path rather than bypassing their protocol.
+template<typename A>
+inline constexpr bool direct_gather_task = false;
+template<typename T>
+inline constexpr bool direct_gather_task<CancellingTask<T, Promise<T>>> = true;
+template<typename T>
+inline constexpr bool direct_gather_task<NetworkTask<T, NetworkPromise<T>>> = true;
+
+template<typename A>
+class GatherTaskChild {
+public:
+    explicit GatherTaskChild(A input) : input_(std::move(input)) {}
+
+    void start(TaskGroup& group, const GatherContext& context) {
+        connect_gather_input(input_, context);
+        input_.promise().completion({&group, [](void* context) noexcept {
+            return static_cast<TaskGroup*>(context)->complete_child();
+        }});
+        // The final_suspend of the original task notifies the group directly.
+        // Do not use task.resume(): it reads done() after resume, which can race
+        // with task completion on another thread.
+        if (input_.handle().done()) {
+            // Match co_await's ready path for an already completed task.
+            group.arrive();
+        } else {
+            input_.handle().resume();
+        }
+    }
+
+    using Result = GatherValue<A>;
+    using Value = std::conditional_t<std::is_lvalue_reference_v<Result>, Result,
+                                     std::remove_reference_t<Result>>;
+
+    Result& result() & { return value(); }
+    const Value& result() const& { return value(); }
+    Result&& result() && { return std::forward<Result>(value()); }
+    const Value&& result() const&& { return static_cast<const Value&&>(value()); }
+
+    void rethrow_if_failed() const {
+        // Read by reference: inspecting a result must not copy or move it.
+        (void) input_.handle().promise().result();
+    }
+private:
+    Result& value() const {
+        auto& promise = input_.handle().promise();
+        if constexpr (std::is_void_v<GatherReturn<A>>) {
+            promise.result();
+            return void_value_;
+        } else {
+            // The rvalue promise accessor preserves explicit reference results
+            // and exposes mutable stored values without moving them.
+            auto&& value = std::move(promise).result();
+            // C++23 implicitly moves a returned local rvalue reference; expose
+            // the stored object as an lvalue explicitly for this accessor.
+            return static_cast<Result&>(value);
+        }
+    }
+    A input_;
+    [[no_unique_address]] mutable std::monostate void_value_;
+};
+
+template<GatherInput A>
+auto make_gather_child(A input) {
+    if constexpr (direct_gather_task<A>) {
+        return GatherTaskChild<A>{std::move(input)};
+    } else {
+        return make_gather_wrapper(std::move(input));
+    }
+}
+
 template<typename... A>
-struct GatherState : GatherLatch {
+struct GatherState : TaskGroup {
     explicit GatherState(A&&... inputs)
-        : GatherLatch(sizeof...(A)), children(make_gather_child(std::move(inputs))...) {}
-    std::tuple<GatherChild<GatherValue<A>>...> children;
+        : TaskGroup(sizeof...(A)), children(make_gather_child(std::move(inputs))...) {}
+    std::tuple<decltype(make_gather_child(std::declval<A>()))...> children;
 };
 
 template<typename... A>
@@ -235,7 +295,8 @@ using detail::get;
 
 /**
  * @brief Start an owned group of awaitables and wait for every child to finish.
- * @param inputs Unstarted awaitables, moved into the group.
+ * @param inputs Owned awaitables. Asyncnet tasks must be unstarted or already
+ *               completed, never concurrently running or awaiting another operation.
  * @return A single-use awaitable yielding tuple-like results in argument order.
  * @note CancellingTask children inherit the awaiting task's stop state. NetworkTask
  *       children also share a NetworkTask parent's progress counters (not a sum).
@@ -243,8 +304,11 @@ using detail::get;
  *       is cooperative and never skips waiting for any child to finish.
  * @throws Rethrows the first child exception in argument order after every child
  *         finishes, including when the caller discards the results.
- * @note Results own the child frames. Values and void placeholders (std::monostate)
- *       live in those frames; lvalue references preserve their original identity.
+ * @note Built-in CancellingTask and NetworkTask inputs with their default promises
+ *       notify the group directly from final_suspend, without wrapper coroutines.
+ *       Other inputs use a coroutine adapter to preserve their await protocol.
+ * @note Results own the task frames and void placeholders (std::monostate).
+ *       Value results live in the frames; lvalue references preserve their original identity.
  *       Keep the results alive while using references into them. Borrowed inputs,
  *       coroutine receivers and external reference results must outlive their use.
  *       Do not destroy or move an actively awaited group or its awaiting task.
@@ -257,7 +321,8 @@ template<detail::GatherInput... A>
 /**
  * @brief Gather awaitables using an explicit cancellation source.
  * @param stop Source shared with cancellable children, overriding the parent's.
- * @param inputs Unstarted awaitables, moved into the group.
+ * @param inputs Owned awaitables. Asyncnet tasks must be unstarted or already
+ *               completed, never concurrently running or awaiting another operation.
  * @return A single-use awaitable with the same result and lifetime contract as gather().
  * @note Useful outside an asyncnet task. Network progress still follows the parent
  *       when present. Existing child cancellation sources are replaced before start.

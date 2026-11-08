@@ -1,6 +1,8 @@
 #pragma once
 #include <asyncnet/utility/Concepts.hpp>
+#include <asyncnet/detail/Completion.hpp>
 #include <stdexcept>
+#include <exception>
 #include <coroutine>
 #include <variant>
 #include <stop_token>
@@ -60,13 +62,9 @@ namespace asyncnet {
 
 				template<typename T>
 				std::coroutine_handle<> await_suspend(std::coroutine_handle<T> coroutine) noexcept {
-					auto& promise = coroutine.promise();
-					if (promise.continuation_) {
-						return promise.continuation_;
-					}
-					else {
-						return std::noop_coroutine();
-					}
+					// Copy before notifying: completion may release the context owner.
+					const auto completion = coroutine.promise().completion_;
+					return completion.notify(completion.context);
 				}
 
 				void await_resume() noexcept {
@@ -120,7 +118,12 @@ namespace asyncnet {
 			}
 
 			void continuation(std::coroutine_handle<> coroutine) noexcept {
-				continuation_ = coroutine;
+				completion_ = Completion::continuation(coroutine);
+			}
+
+			// Installed before starting; the target must survive notification.
+			void completion(Completion target) noexcept {
+				completion_ = target;
 			}
 
 			bool request_stop() noexcept {
@@ -140,7 +143,7 @@ namespace asyncnet {
 			}
 
 		protected:
-			std::coroutine_handle<> continuation_ = nullptr;
+			Completion completion_;
 			std::stop_source stop_source_;
 		};
 	};

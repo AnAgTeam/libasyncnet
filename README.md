@@ -130,14 +130,25 @@ keep their original identity, and `void` results use `std::monostate`. Keep the
 result object alive while using references into it. Borrowed inputs, coroutine
 receivers and externally referenced results must outlive their use.
 
+Built-in `CancellingTask` and `NetworkTask` inputs with their default promises
+notify the group from `final_suspend` through a generic completion callback.
+The promise stores only a context pointer and a function pointer; it does not
+know about groups. The callback returns a coroutine handle for symmetric
+transfer rather than resuming the continuation itself. Constructing a group needs
+one allocation for stable group storage, with no extra coroutine frame per input
+(the original task frames are already allocated). Other awaitables, including
+custom task/promise types, use coroutine adapters to preserve their await protocol.
+Both paths can be mixed in one group.
+
 Inside an asyncnet task, `gather` automatically shares the parent's stop state
 with cancellable children. Network children also share a network parent's progress
 counters; these counters are shared observations, not a sum of parallel transfers.
 The explicit `gather(stop_source, ...)` overload overrides the inherited stop state
 and also works from foreign coroutines. Cancellation is cooperative: the group
 still waits for every child, including awaitables without cancellation support.
-Pass unstarted tasks and await the group once; do not move or destroy an active
-group or its awaiting coroutine.
+Asyncnet task inputs must be unstarted or already completed, never in flight.
+Await the group once; do not move or destroy an active group or its awaiting
+coroutine.
 
 ```cpp
 #include <asyncnet/AsyncSession.hpp>
